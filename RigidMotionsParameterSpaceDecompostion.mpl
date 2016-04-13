@@ -45,7 +45,7 @@
 # - since memory problem with Grid:-Launch() is solved we could stick with witnesspoints method
 #   and do not implement recursive strategy.
 #
-RigidMotionParameterSpaceDecompostion := module() 
+RigidMotionsParameterSpaceDecompostion := module() 
   export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM:
   local  CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
          ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
@@ -79,6 +79,7 @@ CayleyTransform := proc( vars::~set )
   else
    error "Unsupported dimension! Check 1, 2 or 3":
   end if:
+  dim := upperbound(A)[1];
   QLSide := Matrix( dim, shape = identity ) - A:
   QRSide := LinearAlgebra:-MatrixInverse( Matrix( dim, shape = identity ) + A ):
   return simplify( QLSide . QRSide ):
