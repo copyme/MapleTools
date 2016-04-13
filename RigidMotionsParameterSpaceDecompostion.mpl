@@ -614,7 +614,7 @@ LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list)
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange):
-  numbers := ComputeEventsAlgebraicNumbers(Q,3):
+  numbers := ComputeEventsAlgebraicNumbers(Q):
   numbers := convert(numbers,list):
   print("numbers converted");
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
@@ -772,6 +772,7 @@ end proc;
 #
 # TODO:
 #   Replace hard coded path by variable
+#   Export printing code into a procedure
 #   Simplify the code
 #   After adding the communication approach the number of NMM is much smaller, check this
 CalculateNMM := proc(nType::string, kRange::list, dir::string, id::integer) 
