@@ -259,7 +259,7 @@ module RealAlgebraicNumber()
   local StrongRefineAt::static := proc( self::RealAlgebraicNumber, m::rational )
     local refined:
     if self:-isRational_ or signum( eval( self:-poly, indets( self:-poly )[1] = m ) ) = 0 then
-      return;
+      return self;
     fi:
     refined := self;
     while refined:-a <= m and m <= refined:-b do
