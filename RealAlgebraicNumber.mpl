@@ -102,7 +102,7 @@ module RealAlgebraicNumber()
           " evaluated to zero but not on the another. Interval fixed.");
           self:-a := self:-b;
           self:-isRational_ := true:
-        elif signAtA = signAtB then
+        elif signAtA = signAtB and self:-a <> self:-b then
           error "Interval incorrect! No root in the interval!";
         fi:
       elif degree( poly ) = 0 then
@@ -188,11 +188,13 @@ module RealAlgebraicNumber()
 #    number is bigger than a rational.
 #
   local CompareRational::static := proc( self::RealAlgebraicNumber, m::rational )
-    if evalb( self:-a < m ) then
+    local refined:
+    refined := StrongRefineAt(self,m);
+    if evalb( refined:-a < m ) then
       return -1;
-    elif evalb( self:-a > m ) then
+    elif evalb( refined:-a > m ) then
       return 1;
-    elif evalb( signum( eval( self:-poly, op( indets( self:-poly ) ) = m ) ) = 0 ) then
+    elif evalb( signum( eval( refined:-poly, op( indets( refined:-poly ) ) = m ) ) = 0 ) then
       return 0;
     end if;
   end proc:
@@ -214,7 +216,7 @@ module RealAlgebraicNumber()
   local RefineAt::static := proc( self::RealAlgebraicNumber, m::rational )
     local signAtM, f::polynom, g::polynom;
     local var := op( indets( self:-poly ) );
-    if evalb( IsRational( self ) or m <= self:-a or self:-b <= m ) then
+    if self:-isRational_ or m <= self:-a or self:-b <= m then
       return self;
     end if;
     signAtM := signum( eval( self:-poly, var = m ) );
@@ -227,6 +229,7 @@ module RealAlgebraicNumber()
       return Object( RealAlgebraicNumber, self:-poly, self:-a, m );
     end if;
   end proc:
+
 
 # Method: BisectRange
 #   A method used to compare a real algebraic number with a
@@ -241,6 +244,28 @@ module RealAlgebraicNumber()
   local BisectRange::static := proc( self::RealAlgebraicNumber )
     return RefineAt( self, ( self:-a + self:-b ) / 2 );
   end proc:
+
+
+# Method: StrongRefineAt
+#   A method used to refine a real algebraic number using a rational
+#   number for adaptation of a range isolating a root of poly.
+#
+# Parameters:
+#   self::RealAlgebraicNumber      - a real algebraic number
+#   m::rational                    - a rational number
+#
+  local StrongRefineAt::static := proc( self::RealAlgebraicNumber, m::rational )
+    local refined:
+    if self:-isRational_ or signum( eval( self:-poly, indets( self:-poly )[1] = m ) ) = 0 then
+      return;
+    fi:
+    refined := self;
+    while refined:-a <= m and m <= refined:-b do
+      refined := BisectRange(refined);
+    od:
+    return refined:
+  end proc: 
+
 
 # Method: Compare
 #   A method used to compare two real algebraic numbers.
@@ -412,13 +437,14 @@ module RealAlgebraicNumber()
 # Output:
 #   true when l is equal to r and false otherwise.
 #
-  #export `=`::static := proc( l, r, $ )          
-  #  if Compare( l, r ) = 0 then
-  #    return true;
-  #  else
-  #    return false;
-  #  end if;
-  #end proc:
+  export `=`::static := proc( l, r, $ )          
+    if Compare( l, r ) = 0 then
+      return true;
+    else
+      return false;
+    end if;
+  end proc:
+
 end module:
 
 
@@ -433,6 +459,10 @@ end module:
 TestRealAlgebraicNumbersComparisonLower := proc( loops::integer := 10, deg::integer := 80 )
   local numA := Object( RealAlgebraicNumber, 3 * x - 1, 91625968981/274877906944, 45812984491/137438953472 );
   local numB := Object( RealAlgebraicNumber, x^2 - 3, -238051250353/137438953472, -14878203147/8589934592 );
+  local numC := Object( RealAlgebraicNumber, x - 1/2, -1, 1 );
+  local numD := Object( RealAlgebraicNumber, 3*x - 1/2, 0, 1 );
+  local numE := Object( RealAlgebraicNumber, x, 0, 1 );
+  local numF := Object( RealAlgebraicNumber, x, -1, 0 );
   local f::polynom, g::polynom, rootsF := [], rootsG := [], numbers := [];
   local i, rf, rg;
   print( "numA : ", numA );
@@ -455,6 +485,13 @@ TestRealAlgebraicNumbersComparisonLower := proc( loops::integer := 10, deg::inte
     ASSERT( evalb( numB  = numB ) = true, " ( numB = numB ) gives false should true" );
     ASSERT( evalb( numA  = numB ) = false, " ( numrA = numB ) gives true should false" );
     ASSERT( evalb( numB  = numA ) = false, " ( numrB = numA ) gives true should false" );
+    (*Test for numbers with ill ranges*)
+    ASSERT( evalb( numC  = numD ) = false, " ( numrC = numD ) gives true should false" );
+    ASSERT( evalb( numE  = numF ) = true, " ( numrE = numF ) gives false should true" );
+    ASSERT( evalb( numC  > numE ) = true, " ( numrC > numE ) gives false should true" );
+    ASSERT( evalb( numC  > numD ) = true, " ( numrC > numD ) gives false should true" );
+    ASSERT( evalb( numC  < numD ) = false, " ( numrC < numD ) gives true should false" );
+    ASSERT( evalb( numC  = numF ) = false, " ( numrC = numF ) gives true should false" );
   kernelopts( assertlevel = 0 );
     for i from 1 to loops do
        f := randpoly( x, degree=MapleTA[Builtin][rint]( 1, deg ) );
