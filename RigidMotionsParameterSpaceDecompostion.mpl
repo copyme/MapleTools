@@ -46,12 +46,12 @@
 #   and do not implement recursive strategy.
 #
 RigidMotionsParameterSpaceDecompostion := module() 
-  export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM:
+  export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM:
   local  CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
          ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
          ComputeEventsBTypeGrid, ComputeEventsCTypeGrid, ComputeEventsAlgebraicNumbers, SplitScan,
          ClusterEvents, ComputeSamplePoints, ParallelComputeSamplePoints, Isort, 
-         GetOrderedCriticalPlanes, RecoverTranslationSamplePoints, Get3DNMM, CalculateNMM, 
+         GetOrderedCriticalPlanes, RecoverTranslationSamplePoints, Get3DNMM,
          ParallelCalculateNMM:
 
 
@@ -826,7 +826,7 @@ end proc:
 ParallelCalculateNMM := proc(nType::string, kRange::list, dir::string) 
   local me;
   me := Grid:-MyNode(); 
-  CalculateNMM(nType, kRange, dir, me);
+  RigidMotionsParameterSpaceDecompostion:-CalculateNMM(nType, kRange, dir, me);
   Grid:-Barrier();
 end proc:
 
