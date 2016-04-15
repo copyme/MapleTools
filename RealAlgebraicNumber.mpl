@@ -108,7 +108,11 @@ module RealAlgebraicNumber()
 #   self::RealAlgebraicNumber      - a real algebraic number
 #
   export ModulePrint::static := proc( self::RealAlgebraicNumber )
-   nprintf( "( %a, ]%f, %f[ )", self:-poly, self:-a, self:-b );
+    if(self:-a = self:->b)
+        nprintf( "( %a, [%f, %f] )", self:-poly, self:-a, self:-b );
+    then
+        nprintf( "( %a, ]%f, %f[ )", self:-poly, self:-a, self:-b );
+    end if;
   end proc:
 
 # Method: GetPolynomial
@@ -200,12 +204,7 @@ module RealAlgebraicNumber()
     signAtM := signum( eval( self:-poly, var = m ) );
     if evalb( signAtM = 0 ) then
      g := denom( m ) * var  - numer( m );
-     f := gcd( self:-poly, g );
-     if evalb( signum( eval( g, var = self:-a ) ) !=  signum( eval( g, var = self:-b ) ) ) then
-      return Object( RealAlgebraicNumber, g, self:-a, self:-b ); 
-     else
-      return Object( RealAlgebraicNumber, f, self:-a, self:-b );      
-     end if;
+     return Object( RealAlgebraicNumber, g, m, m ); 
     elif evalb( signum( eval( self:-poly, var = self:-a ) ) = signAtM ) then
       return Object( RealAlgebraicNumber, self:-poly, m, self:-b );
     else
@@ -272,10 +271,10 @@ module RealAlgebraicNumber()
     end if;
 
     (* refine at the intersecting interval *)
-    ll := RefineAt( l, a );
-    ll := RefineAt( ll, b );
-    rr := RefineAt( r, a );
-    rr := RefineAt( rr, b );
+    ll := RefineAt( l, a ):
+    ll := RefineAt( ll, b ):
+    rr := RefineAt( r, a ):
+    rr := RefineAt( rr, b ):
 
     (* Refiment can change type to rational. *)
     if rr:-isRational_ then
@@ -286,9 +285,9 @@ module RealAlgebraicNumber()
 
     (* Check if there is no intersection after refiment. *)
     if evalb( ll:-b <= rr:-a ) then
-      return true;
+      return -1;
     elif evalb( ll:-a >= rr:-b ) then
-      return false;
+      return 1;
     end if;
 
     (* The number of roots of the GCD of two polynomials is equal to the number of common roots.
@@ -299,16 +298,16 @@ module RealAlgebraicNumber()
     
     if evalb( signum( eval( G, op( indets( G ) ) = ll:-a ) ) <> signum( eval( G,
       op( indets( G ) ) = ll:-b ) ) ) then
-      ll := Object( ll, G, ll:-a, ll:-b );
+      ll := Object( ll, G, ll:-a, ll:-b ):
     else
-      ll := Object( ll, F1, ll:-a, ll:-b );
+      ll := Object( ll, F1, ll:-a, ll:-b ):
     end if:
 
     if evalb( signum( eval( G, op( indets( G ) ) = rr:-a ) ) <> signum( eval( G,
       op( indets( G ) ) = rr:-b ) ) ) then
-      rr := Object( rr, G, rr:-a, rr:-b );
+      rr := Object( rr, G, rr:-a, rr:-b ):
     else
-      rr := Object( rr, F2, rr:-a, rr:-b );
+      rr := Object( rr, F2, rr:-a, rr:-b ):
     end if:
 
     (* Use of GCD can change type to rational. *)
@@ -326,8 +325,8 @@ module RealAlgebraicNumber()
  
     (* Refiment until disjoitness. *)
     for i from 1 while 1 = 1 do
-      ll := BisectRange( ll );
-      rr := BisectRange( rr );
+      ll := BisectRange( ll ):
+      rr := BisectRange( rr ):
 
       (* Rationals after refiment. *)
       if rr:-isRational_ then
@@ -397,13 +396,13 @@ module RealAlgebraicNumber()
 # Output:
 #   true when l is equal to r and false otherwise.
 #
-  export `=`::static := proc( l, r, $ )          
-    if Compare( l, r ) = 0 then
-      return true;
-    else
-      return false;
-    end if;
-  end proc:
+  #export `=`::static := proc( l, r, $ )          
+  #  if Compare( l, r ) = 0 then
+  #    return true;
+  #  else
+  #    return false;
+  #  end if;
+  #end proc:
 end module:
 
 
