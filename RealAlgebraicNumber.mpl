@@ -46,6 +46,8 @@ module RealAlgebraicNumber()
   local b::rational;
   (* Real algebraic number is rational when a = b and sign of poly at a/b is 0. *)
   local isRational_;
+  (* Note that isolating interval has to be open iff a real algebraic number is not rational and
+  closed, a = b, otherwise.*)
 
 # Method: ModuleCopy
 #   Standard constructor / copy constructor
@@ -69,6 +71,7 @@ module RealAlgebraicNumber()
                                      poly::polynom,
                                      a::rational,
                                      b::rational, $ )
+    local signAtA, signAtB;
     if _passed = 2 then
       self:-poly := proto:-poly;
       self:-a := proto:-a;
@@ -85,16 +88,31 @@ module RealAlgebraicNumber()
         error "Polynomial: %1 is not square-free.", poly;
       end if;
       self:-poly := poly;
-      if degree( poly) >= 1 then
+      if degree(poly) >= 1 then
+        signAtA := signum( eval( self:-poly, op( indets( poly ) ) = a ) );
+        signAtB := signum( eval( self:-poly, op( indets( poly ) ) = b ) );
         self:-a := a;
         self:-b := b;
-        self:-isRational_ := evalb( self:-a = self:-b and signum( eval( self:-poly, op( indets( poly ) ) = self:-a ) ) = 0 );
-       elif degree( poly ) = 0 then
+        self:-isRational_ := evalb( self:-a = self:-b and signAtA = 0 );
+        if signAtA = 0 and signAtB <> 0 then
+          WARNING("Incorrect interval. Sign of univariate polynomial on one side of the interval"
+          " evaluated to zero but not on the another. Interval fixed.");
+          self:-b := self:-a;
+          self:-isRational_ := true:
+        elif signAtB = 0 and signAtA <> 0 then 
+          WARNING("Incorrect interval. Sign of univariate polynomial on one side of the interval"
+          " evaluated to zero but not on the another. Interval fixed.");
+          self:-a := self:-b;
+          self:-isRational_ := true:
+        elif signAtA = signAtB and self:-a <> self:-b then
+          error "Interval incorrect! No root in the interval!";
+        fi:
+      elif degree( poly ) = 0 then
         self:- denom( poly ) * 'a'  - numer( poly );
         self:-a := poly;
         self:-b := poly;
         self:-isRational_ := true;
-       else
+      else
         error "Degree of %1 is invalid.", poly;
       end if;
     end if;
@@ -108,10 +126,10 @@ module RealAlgebraicNumber()
 #   self::RealAlgebraicNumber      - a real algebraic number
 #
   export ModulePrint::static := proc( self::RealAlgebraicNumber )
-    if(self:-a = self:->b)
-        nprintf( "( %a, [%f, %f] )", self:-poly, self:-a, self:-b );
-    then
-        nprintf( "( %a, ]%f, %f[ )", self:-poly, self:-a, self:-b );
+    if(self:-a = self:-b) then
+        nprintf( "( %a, [%a, %a] )", self:-poly, self:-a, self:-b );
+    else
+        nprintf( "( %a, ]%a, %a[ )", self:-poly, self:-a, self:-b );
     end if;
   end proc:
 
@@ -172,11 +190,13 @@ module RealAlgebraicNumber()
 #    number is bigger than a rational.
 #
   local CompareRational::static := proc( self::RealAlgebraicNumber, m::rational )
-    if evalb( self:-a < m ) then
+    local refined:
+    refined := StrongRefineAt(self,m);
+    if evalb( refined:-a < m ) then
       return -1;
-    elif evalb( self:-a > m ) then
+    elif evalb( refined:-a > m ) then
       return 1;
-    elif evalb( signum( eval( self:-poly, op( indets( self:-poly ) ) = m ) ) = 0 ) then
+    elif evalb( signum( eval( refined:-poly, op( indets( refined:-poly ) ) = m ) ) = 0 ) then
       return 0;
     end if;
   end proc:
@@ -198,7 +218,7 @@ module RealAlgebraicNumber()
   local RefineAt::static := proc( self::RealAlgebraicNumber, m::rational )
     local signAtM, f::polynom, g::polynom;
     local var := op( indets( self:-poly ) );
-    if evalb( IsRational( self ) or m <= self:-a or self:-b <= m ) then
+    if self:-isRational_ or m <= self:-a or self:-b <= m then
       return self;
     end if;
     signAtM := signum( eval( self:-poly, var = m ) );
@@ -211,6 +231,7 @@ module RealAlgebraicNumber()
       return Object( RealAlgebraicNumber, self:-poly, self:-a, m );
     end if;
   end proc:
+
 
 # Method: BisectRange
 #   A method used to compare a real algebraic number with a
@@ -225,6 +246,28 @@ module RealAlgebraicNumber()
   local BisectRange::static := proc( self::RealAlgebraicNumber )
     return RefineAt( self, ( self:-a + self:-b ) / 2 );
   end proc:
+
+
+# Method: StrongRefineAt
+#   A method used to refine a real algebraic number using a rational
+#   number for adaptation of a range isolating a root of poly.
+#
+# Parameters:
+#   self::RealAlgebraicNumber      - a real algebraic number
+#   m::rational                    - a rational number
+#
+  local StrongRefineAt::static := proc( self::RealAlgebraicNumber, m::rational )
+    local refined:
+    if self:-isRational_ or signum( eval( self:-poly, indets( self:-poly )[1] = m ) ) = 0 then
+      return self;
+    fi:
+    refined := self;
+    while refined:-a <= m and m <= refined:-b do
+      refined := BisectRange(refined);
+    od:
+    return refined:
+  end proc: 
+
 
 # Method: Compare
 #   A method used to compare two real algebraic numbers.
@@ -396,86 +439,13 @@ module RealAlgebraicNumber()
 # Output:
 #   true when l is equal to r and false otherwise.
 #
-  #export `=`::static := proc( l, r, $ )          
-  #  if Compare( l, r ) = 0 then
-  #    return true;
-  #  else
-  #    return false;
-  #  end if;
-  #end proc:
+  export `=`::static := proc( l, r, $ )          
+    if Compare( l, r ) = 0 then
+      return true;
+    else
+      return false;
+    end if;
+  end proc:
+
 end module:
-
-
-# Procedure: TestRealAlgebraicNumbersComparisonLower
-#   Some test of implementation of real algebraic numbers.
-#
-# Parameters:
-#   loops::integer             - a number of random polynomials to consider,
-#                                 default value is 10
-#   deg::integer               - a maximal possible degree of random polynomial
-#
-TestRealAlgebraicNumbersComparisonLower := proc( loops::integer := 10, deg::integer := 80 )
-  local numA := Object( RealAlgebraicNumber, 3 * x - 1, 91625968981/274877906944, 45812984491/137438953472 );
-  local numB := Object( RealAlgebraicNumber, x^2 - 3, -238051250353/137438953472, -14878203147/8589934592 );
-  local f::polynom, g::polynom, rootsF := [], rootsG := [], numbers := [];
-  local i, rf, rg;
-  print( "numA : ", numA );
-  print( "numB : ", numB );
-  kernelopts( assertlevel = 1 );
-    (* Test for A rational and B non-rational, or equal. *)
-    ASSERT( evalb( numB  < numA ) = true, " ( numA < numB ) gives false should true" );
-    ASSERT( evalb( numA  < numB ) = false, " ( numA < numB ) gives true should false" );
-    ASSERT( evalb( numA  < numA ) = false, " ( numA < numA ) gives true should false" );
-    ASSERT( evalb( numB  > numA ) = false, " ( numA > numB ) gives false should true" );
-    ASSERT( evalb( numA  > numB ) = true, " ( numA > numB ) gives false should true" );
-    ASSERT( evalb( numA  > numA ) = false, " ( numA > numA ) gives true should false" );
-    ASSERT( evalb( numB  <= numA ) = true, " ( numA <= numB ) gives false should true" );
-    ASSERT( evalb( numA  <= numB ) = false, " ( numA <= numB ) gives true should false" );
-    ASSERT( evalb( numA  <= numA ) = true, " ( numA <= numA ) gives false should true" );
-    ASSERT( evalb( numB  >= numA ) = false, " ( numA >= numB ) gives true should false" );
-    ASSERT( evalb( numA  >= numB ) = true, " ( numA >= numB ) gives false should true" );
-    ASSERT( evalb( numA  >= numA ) = true, " ( numA >= numA ) gives false should true" );
-    ASSERT( evalb( numA  = numA ) = true, " ( numA = numA ) gives false should true" );
-    ASSERT( evalb( numB  = numB ) = true, " ( numB = numB ) gives false should true" );
-    ASSERT( evalb( numA  = numB ) = false, " ( numrA = numB ) gives true should false" );
-    ASSERT( evalb( numB  = numA ) = false, " ( numrB = numA ) gives true should false" );
-  kernelopts( assertlevel = 0 );
-    for i from 1 to loops do
-       f := randpoly( x, degree=MapleTA[Builtin][rint]( 1, deg ) );
-       f := sqrfree( factor( f ) )[2,..,1][1];
-       g := randpoly( x, degree=MapleTA[Builtin][rint]( 1, deg )  );
-       g := sqrfree( factor( g ) )[2,..,1][1];
-       rootsF := RootFinding:-Isolate ( f, x, output='interval' );
-       rootsG := RootFinding:-Isolate ( g, x, output='interval' );
-       for rf in rootsF do
-        numbers := [ op( numbers ), Object( RealAlgebraicNumber, f, op( rf )[2][1], op( rf )[2][2] ) ];
-       end do;
-       for rg in rootsG do
-        numbers := [ op( numbers ), Object( RealAlgebraicNumber, g, op( rg )[2][1], op( rg )[2][2] ) ];
-       end do;
-    end do;
-    for numA in numbers do
-      for numB in numbers do
-        i := Compare( numA, numB );
-        if i = -1 then 
-          print( numA, " < ", numB  );
-        elif i = 0 then
-          print( numA, " = ", numB  );
-        elif i = 1 then
-          print( numA, " > ", numB  );
-        else
-          error "Two numbers was not compared correctly.";
-        end if;
-       end do;
-    end do;
-    print( "Use sort() to sort the list of algebraic numbers." );
-    numbers := sort( numbers, proc(l,r) 
-                     if Compare( l, r ) = -1 then
-                       return true;
-                     else 
-                       return false;
-                     end if;
-                  end proc );
-    print( numbers );
-end proc:
 
