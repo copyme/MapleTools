@@ -608,7 +608,7 @@ end proc:
 #   thread during computations.
 LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list) 
   local numbers, events, R: 
-  global Q, cluster:
+  global Q, cluster,rootTmp:
   kernelopts(printbytes=false):
   R := CayleyTransform({a,b,c}):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
@@ -628,7 +628,9 @@ LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list)
   cluster := [[[cluster[1][1][1], events]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   events := cluster[-1][1][1]:
-  events := Object(RealAlgebraicNumber, GetPolynomial(events), GetInterval(events)[1]+1/2, GetInterval(events)[2]+1/2):
+  rootTmp:= GetInterval(events)[1]+1/4 + GetInterval(events)[2]+1/4;
+  events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
+  numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [events,cluster[-1][1][2]]]:
   print("all quadrics added into the first event");
   print("cluster size ", upperbound(cluster));
