@@ -46,8 +46,8 @@
 #   and do not implement recursive strategy.
 #
 RigidMotionsParameterSpaceDecompostion := module() 
-  export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM:
-  local  CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
+  export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM,
+    CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
          ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
          ComputeEventsBTypeGrid, ComputeEventsCTypeGrid, ComputeEventsAlgebraicNumbers, SplitScan,
          ClusterEvents, ComputeSamplePoints, ParallelComputeSamplePoints, Isort, 
@@ -316,7 +316,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     elif nops(vars) = 2 then 
       sys := [ q, diff( q, vars[ dim[1] ] ) ];
     fi:
-    univ := EliminationResultant(sys, vars):
+    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys, vars):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -360,7 +360,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
       elif nops(vars) = 2 then
         sys := [ Q[i], Q[j] ]:
       fi:
-      univ := EliminationResultant(sys,vars):
+      univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys,vars):
       if not type( univ, constant ) then
         sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
         sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -392,7 +392,7 @@ ComputeEventsCTypeGrid := proc( Q )
       seq(forget(p, forgetpermanent = true), p in {anames('procedure')}):
     fi:
     sys := [ Q[i], Q[j], Q[k] ]:
-    univ := EliminationResultant(sys,indets(sys)):
+    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys,indets(sys)):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -424,9 +424,9 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set )
     events:= {op(ComputeEventsATypeGrid( Q, [2, 3] )), op(ComputeEventsBTypeGrid( Q, 1 )),
                                                          op(ComputeEventsCTypeGrid( Q ))}:
   for poly in events do
-    factored := sqrfree( factor( poly[1] ) )[2,..,1]: 
+    factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
-      rootsF := RootFinding:-Isolate( sqrFree, op( indets( sqrFree ) ), output='interval' ):
+      rootsF := RootFinding:-Isolate( sqrFree, output='interval' ):
       for rf in rootsF do
         ArrayTools:-Append(numbers, [ Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
         op(rf)[2][2] ), poly[2]]):
