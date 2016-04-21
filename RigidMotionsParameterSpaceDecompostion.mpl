@@ -561,7 +561,7 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
       sys := sys union Q[x[2]]:
     end do:
     vars := indets(sys):
-    midpoint := (1/4)*add(GetInterval(cluster[i][1][1]))+(1/4)*add(GetInterval(cluster[i+1][1][1])):
+    midpoint := (GetInterval(cluster[i][1][1])[2] + GetInterval(cluster[i+1][1][1])[1])/2:
     sys := Threads:-Map(proc (x) return eval(x, vars[1] = midpoint) <> 0 end proc, sys):
     # Some how negative sample points are still generated.
     sys := [op(sys), 0 < vars[2], 0 < vars[3]]:
@@ -628,7 +628,7 @@ LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list)
   cluster := [[[cluster[1][1][1], events]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   events := cluster[-1][1][1]:
-  rootTmp:= GetInterval(events)[1]+1/4 + GetInterval(events)[2]+1/4;
+  rootTmp:= GetInterval(events)[2]+1/4;
   events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
   numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [events,cluster[-1][1][2]]]:
