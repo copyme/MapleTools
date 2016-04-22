@@ -234,14 +234,14 @@ end proc:
 IsAsymptotic := proc(x::polynom)
   local vars, vec, Vb, Vc, VV, sols;
   vars := [op(indets(x))];
-  vec := VectorCalculus:-Gradient(x, [op(indets(x))]);
+  vec := VectorCalculus:-Gradient(x, vars);
   Vb := Vector(3, [coeff(vec[2],vars[2]),coeff(vec[2],vars[3]),eval(vec[2],[vars[-2]=0,vars[-1]=0])]);
   Vc := Vector(3, [coeff(vec[3],vars[2]),coeff(vec[3],vars[3]),eval(vec[3],[vars[-2]=0,vars[-1]=0])]);
   VV := LinearAlgebra:-CrossProduct(Vb, Vc);
   if norm(VV,1) = 0 then
     return {a=0};
   fi;
-  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>0});
+  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0});
   if sols = NULL or sols = {} then
     return {};
   else
