@@ -39,13 +39,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# TODO:
-# - move functions which are not related to arrangement into a different file.
-# - Add recursive strategy
-# - since memory problem with Grid:-Launch() is solved we could stick with witnesspoints method
-#   and do not implement recursive strategy.
 #
 RigidMotionsParameterSpaceDecompostion := module() 
+  option package;
   export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM,
     CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
          ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
@@ -62,7 +58,7 @@ RigidMotionsParameterSpaceDecompostion := module()
 #   vars   - set of variables
 #
 # Output:
-#   3x3 rotation matrix
+#   3x3 (or 2x2) rotation matrix
 # 
 # Links:
 #   https://en.wikipedia.org/wiki/Cayley_transform
@@ -83,31 +79,6 @@ CayleyTransform := proc( vars::~set )
   QLSide := Matrix( dim, shape = identity ) - A:
   QRSide := LinearAlgebra:-MatrixInverse( Matrix( dim, shape = identity ) + A ):
   return simplify( QLSide . QRSide ):
-end proc:
-
- 
-# Procedure: GetQuadric
-#   Compute a quadric
-#
-# Parameters:
-#   R          - a rotation matrix obtained from Cayley transform
-#   neighbor   - a vector which points on a neighbor
-#   hGridPlane - a half-grid plane i.e. k_dim + 1/2
-#   axis       - a given axis i.e. 1 = x, 2 = y and 3 = z 
-#   
-#
-# Output:
-#   2 *(a^2 * b^2 * c^2 + 1) R . neigbor - k_axis - 1/2
-GetQuadric := proc( R::~Matrix,
-                     neighbor::~Vector,
-                     hGridPlane::~Vector,
-                     axis::integer )
-  local r := R . neighbor - hGridPlane;
-  if axis > 0 and axis < 4 then
-    return normal(( 2 * denom(R[1][1]) ) * r[axis] );
-  else
-    error "Wrong dimension: dim must be in [1,3].";
-  end if:
 end proc:
 
 
@@ -137,28 +108,59 @@ GetNeighborhood := proc( nType::string )
   end if:
 end proc:
 
+
+# Procedure: GetQuadric
+#   Compute a quadric
+#
+# Parameters:
+#   R          - a rotation matrix obtained from Cayley transform
+#   neighbor   - a vector which points on a neighbor
+#   hGridPlane - a half-grid plane i.e. k_dim + 1/2
+#   axis       - a given axis i.e. 1 = x, 2 = y and 3 = z 
+#   
+#
+# Output:
+#   Multivariate polynomial
+GetQuadric := proc( R::~Matrix,
+                     neighbor::~Vector,
+                     hGridPlane::~Vector,
+                     axis::integer )
+  local r := R . neighbor - hGridPlane;
+  if axis > 0 and axis < 4 then
+    return simplify( ( 2 * denom( R[1][1] ) ) * r[axis] );
+  else
+    error "Wrong dimension: dim must be in [1,3].";
+  end if:
+end proc:
+
+
 # Procedure: EliminationResultant
 #   Computes univariate polynomial.
 #
 # Parameters:
-#   S          - a set of quadrics in three variables
-#   vars       - a list of variables
+#   S          - a set of polynomials in three variables
 #
 # Output:
 #   Univariate polynomial obtained from S in the first variable.
-#
-# TODO:
-#  - Allow user to chose a variable in which to represent univariate polynomial.
-#  - Try to speed it up
-EliminationResultant := proc(S, vars)
-  local r1, r2, r3, rr1, rr2, rr3;
-  r1 := resultant(S[1], S[2], vars[3]):
-  r2 := resultant(S[1], S[3], vars[3]):
-  r3 := resultant(S[2], S[3], vars[3]):
-  rr1 := resultant(r1, r2, vars[2]):
-  rr2 := resultant(r1, r3, vars[2]):
-  rr3 := resultant(r2, r2, vars[2]):
-  return foldl(gcd, rr1, rr2, rr3):
+EliminationResultant := proc( S::~set )
+  local r1, r2, r3, rr1, rr2, rr3, vars;
+  vars := indets(S);
+  if nops(S) <> 3 then
+    error "Wrong size of the input set. Expected size is 3.";
+  fi;
+  if not type(S[1], polynom) or not type(S[2], polynom) or not type(S[3], polynom) then
+    error "Wrong type of elements. Expected argument is a set of polynomials!"; 
+  fi;
+  if nops(vars) <> 3 then
+    error "Wrong number of indeterminates. It should be 3.";
+  fi;
+  r1 := resultant( S[1], S[2], vars[3] ):
+  r2 := resultant( S[1], S[3], vars[3] ):
+  r3 := resultant( S[2], S[3], vars[3] ):
+  rr1 := resultant( r1, r2, vars[2] ):
+  rr2 := resultant( r1, r3, vars[2] ):
+  rr3 := resultant( r2, r2, vars[2] ):
+  return foldl( gcd, rr1, rr2, rr3 ):
 end proc:
 
 # Procedure: IsMonotonic
@@ -169,14 +171,14 @@ end proc:
 #
 # Output:
 #   true if polynomial is positive or negative and false otherwise.
-IsMonotonic := proc( x::polynom )
+IsMonotonic := proc( x::~polynom )
   local homo, hessian, signmap, clean:
   homo := Groebner:-Homogenize( x, v ):
-  hessian :=( 1 / 2 ) * VectorCalculus:-Hessian( homo, [ op( indets( x ) ), v ] ):
+  hessian := 1 / 2 * VectorCalculus:-Hessian( homo, [ op( indets( x ) ), v ] ):
   signmap := map( signum, LinearAlgebra:-Eigenvalues( hessian ) ):
   signmap := convert( signmap, list ):
   clean := remove( `=`, signmap , 0 ):
-  return( andmap( `=`, clean, 1 ) or andmap( `=`, clean, -1 ) ):
+  return ( andmap( `=`, clean, 1 ) or andmap( `=`, clean, -1 ) ):
 end proc:
 
 # Procedure: ComputeSetOfQuadrics
@@ -312,11 +314,11 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     local q := Q[i];
     vars := [ op( indets( q ) ) ];
     if nops(vars) = 3 then
-      sys := [ q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) ];
+      sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
     elif nops(vars) = 2 then 
       sys := [ q, diff( q, vars[ dim[1] ] ) ];
     fi:
-    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys, vars):
+    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -356,11 +358,11 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
         jvars := [ op( indets( [ Q[j] ] ) ) ]:
         prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], ivars ),
                                     VectorCalculus:-Gradient( Q[j], jvars ) )[dir]:
-        sys := [ Q[i], Q[j], prod ]:
+        sys := { Q[i], Q[j], prod }:
       elif nops(vars) = 2 then
         sys := [ Q[i], Q[j] ]:
       fi:
-      univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys,vars):
+      univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
       if not type( univ, constant ) then
         sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
         sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -391,8 +393,8 @@ ComputeEventsCTypeGrid := proc( Q )
       #(*Clear remember tables*)
       seq(forget(p, forgetpermanent = true), p in {anames('procedure')}):
     fi:
-    sys := [ Q[i], Q[j], Q[k] ]:
-    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys,indets(sys)):
+    sys := { Q[i], Q[j], Q[k] }:
+    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
