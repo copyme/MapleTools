@@ -163,6 +163,7 @@ EliminationResultant := proc( S::~set )
   return foldl( gcd, rr1, rr2, rr3 ):
 end proc:
 
+
 # Procedure: IsMonotonic
 #   Check if given polynomial is strictly positive or negative
 #
@@ -196,19 +197,26 @@ end proc:
 #   factor---and these ones which are strictly positive or negative.
 ComputeSetOfQuadrics := proc( R::~Matrix,
                                nType::string,
-                               axis::integer,
-                               kRange::list )
+                               axis::~integer,
+                               kRange::~list )
   local neighborhood := GetNeighborhood( nType ):
-  local dim := upperbound(neighborhood[1]):
   local quadrics := Array([]):
-  local f, g, i, quadric:
+  local f::polynom, g::polynom, quadric::polynom:
   local indexes := []:
   local T := combinat:-cartprod( [ neighborhood, neighborhood, kRange, kRange ] ):
 
+  if LinearAlgebra:-Determinant(R) <> 1 or [upperbound(R)] <> [3,3] or nops(indets(R)) = 0 then
+    error "Used matrix is not a correct 3 x 3 rotation matrix!";
+  fi;
+
+  if axis < 1 or axis > 3 then
+    error "Axis is not from range [1,3].";
+  fi:
+
   while not T[ finished ] do
     indexes := T[ nextvalue ]():
-    f := GetQuadric( R, Vector( indexes[1] ), Vector( dim, indexes[3] + 1/2 ), axis ):
-    g := GetQuadric( R, Vector( indexes[2] ), Vector( dim, indexes[4] + 1/2 ), axis ):
+    f := GetQuadric( R, Vector( indexes[1] ), Vector( 3, indexes[3] + 1/2 ), axis ):
+    g := GetQuadric( R, Vector( indexes[2] ), Vector( 3, indexes[4] + 1/2 ), axis ):
     quadric := f - g:
     if quadric <> 0 then
       quadric := quadric / lcoeff( quadric ):
@@ -220,6 +228,7 @@ ComputeSetOfQuadrics := proc( R::~Matrix,
   quadrics := Threads:-Map(proc(x) normal(x) * denom(x) end proc, quadrics):
   return quadrics:
 end proc:
+
 
 
 # Procedure: IsAsymptotic

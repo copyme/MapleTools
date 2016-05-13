@@ -167,6 +167,34 @@ TestRigidMotionsParameterSpaceDecompostion := module()
 
 
  TestComputeSetOfQuadrics := proc()
+    local ComputeSetOfQuadrics, R, RR, RRR, kRange := [-1, 0, 1], kRange2 := [-2, -1, 0, 1, 2],
+                                                           kRange3 := [-3, -2, -1, 0, 1, 2, 3]; 
+    CheckInit();
+    ComputeSetOfQuadrics := RigidMotionsParameterSpaceDecompostion:-ComputeSetOfQuadrics;
+    R := RigidMotionsParameterSpaceDecompostion:-CayleyTransform( {a, b, c} );
+    RR := Matrix(3, 3, [[-35,80,-82],[21,19,-70],[90,88,41]]); 
+    RRR := Matrix(4, 4, [[-44,-1,-26,12],[-38,63,30,45],[-38,-23,10,-14],[91,-63,22,60]]); 
+
+    Test(upperbound(ComputeSetOfQuadrics(RR,"N1", 1, kRange)), "Used matrix", testerror, 
+    label="ComputeSetOfQuadrics: Test Pass 1");
+    Test(upperbound(ComputeSetOfQuadrics(RRR,"N1", 1, kRange)), "Used matrix", testerror, 
+    label="ComputeSetOfQuadrics: Test Pass 2");
+    Test(upperbound(ComputeSetOfQuadrics(R,"TEST", 1, kRange)), "Not supported type", testerror, 
+    label="ComputeSetOfQuadrics: Test Pass 3");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N1", 0, kRange)), "Axis is not", testerror, 
+    label="ComputeSetOfQuadrics: Test Pass 4");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N1", 4, kRange)), "Axis is not", testerror, 
+    label="ComputeSetOfQuadrics: Test Pass 5");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N1", 1, kRange)), 27, label="ComputeSetOfQuadrics: Test Pass 6");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N1", 2, kRange)), 27, label="ComputeSetOfQuadrics: Test Pass 7");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N1", 3, kRange)), 27, label="ComputeSetOfQuadrics: Test Pass 8");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N2", 1, kRange2)), 171, label="ComputeSetOfQuadrics: Test Pass 9");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N2", 2, kRange2)), 171, label="ComputeSetOfQuadrics: Test Pass 10");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N2", 3, kRange2)), 171, label="ComputeSetOfQuadrics: Test Pass 11");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N3", 1, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 12");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N3", 2, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 13");
+    Test(upperbound(ComputeSetOfQuadrics(R,"N3", 3, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 14");
+
  end proc;
 
   TestAll := proc()
@@ -176,6 +204,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
     TestGetQuadric();
     TestEliminationResultant();
     TestIsMonotonic();
+    TestComputeSetOfQuadrics();
   end proc;
 
 end module;
