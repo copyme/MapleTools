@@ -41,7 +41,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
   option package;
   local init, Test, CheckInit;
   export InitModule, TestCayleyTransform, TestGetNeighborhood, TestGetQuadric,
-  TestEliminationResultant, TestIsMonotonic, TestComputeSetOfQuadrics, TestAll:
+  TestEliminationResultant, TestIsMonotonic, TestComputeSetOfQuadrics, TestIsAsymptotic, TestAll:
 
 
   InitModule := proc(path::string)
@@ -194,8 +194,18 @@ TestRigidMotionsParameterSpaceDecompostion := module()
     Test(upperbound(ComputeSetOfQuadrics(R,"N3", 1, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 12");
     Test(upperbound(ComputeSetOfQuadrics(R,"N3", 2, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 13");
     Test(upperbound(ComputeSetOfQuadrics(R,"N3", 3, kRange3)), 247, label="ComputeSetOfQuadrics: Test Pass 14");
-
  end proc;
+
+
+ TestIsAsymptotic := proc()
+   local IsAsymptotic;
+   CheckInit();
+   IsAsymptotic := RigidMotionsParameterSpaceDecompostion:-IsAsymptotic;
+   
+   Test(IsAsymptotic(c^2 + 2 * b * c + b^2 + c * a - c + b), {a = 2}, label="IsAsymptotic: Test Pass 1");
+   Test(IsAsymptotic(b * c + b^2 + c * a + 1), {}, label="IsAsymptotic: Test Pass 2");
+ end proc;
+
 
   TestAll := proc()
     CheckInit();
@@ -205,6 +215,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
     TestEliminationResultant();
     TestIsMonotonic();
     TestComputeSetOfQuadrics();
+    TestIsAsymptotic();
   end proc;
 
 end module;

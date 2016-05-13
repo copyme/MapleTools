@@ -239,9 +239,7 @@ end proc:
 #   x          - a quadric in three variables
 #
 # Output:
-#   List of solution for which partial derivatives in b and c are colinear
-# TODO:
-#   Allow user to chose a direction.
+#   List of solution for which partial derivatives in b and c are collinear
 IsAsymptotic := proc(x::polynom)
   local vars, vec, Vb, Vc, VV, sols;
   vars := [op(indets(x))];
