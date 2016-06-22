@@ -348,24 +348,11 @@ IsAsymptoticIntersection := proc( p::polynom, q::polynom  )
 
   Pb := PolynomialIdeals:-EliminationIdeal(J,vars[1..2]):
   Pb := PolynomialIdeals:-IdealInfo:-Generators(Pb)[1]:
-  Pb := Groebner:-LeadingMonomial(Pb, plex(vars[2], vars[1])): 
   Pc := PolynomialIdeals:-EliminationIdeal(J,vars[[1,3]]):
   Pc := PolynomialIdeals:-IdealInfo:-Generators(Pc)[1]:
-  Pc := Groebner:-LeadingMonomial(Pc, plex(vars[3], vars[1])): 
-
   Cb := lcoeff(Pb, vars[2]):
   Cc := lcoeff(Pc, vars[3]):
-  sols := [solve([Cb = 0, Cc = 0])]:
-  sols := map(e -> convert(e,list), sols):
-  sols := ListTools:-Flatten(sols):
-  sols := select(e -> evalf(rhs(e)) >= 0, sols):
-  if nops(sols) = 0 then
-    return NULL:
-  else
-    J := PolynomialIdeals:-`<,>`(Cb,Cc);
-    univ := PolynomialIdeals:-UnivariatePolynomial(vars[1],J);
-    return univ:
-  fi:
+  return gcd(Cb,Cc);
 end proc:
 
 
