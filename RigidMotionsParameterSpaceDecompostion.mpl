@@ -7,6 +7,10 @@
 #  arrangement of quadrics. Therefore, it can or it cannot be useful in study of generic
 #  arrangements. The final output are sample points of full dimensional open cells.
 #
+#  The code was written in relation with the paper: Kacper Pluta, Guillaume Moroz, Yukiko
+#  Kenmochi, Pascal Romon, Quadric arrangement in classifying rigid motions of a 3D digital image,
+#  2016, https://hal.archives-ouvertes.fr/hal-01334257 referred late on as [Quadrics:2016].
+#
 # Author:
 #  Kacper Pluta - kacper.pluta@esiee.fr
 #  Laboratoire d'Informatique Gaspard-Monge - LIGM, A3SI, France
@@ -40,16 +44,17 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
-RigidMotionsParameterSpaceDecompostion := module() 
-  option package;
-  export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM,
-    CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
-         ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
-         ComputeEventsBTypeGrid, ComputeEventsCTypeGrid, ComputeEventsAlgebraicNumbers, SplitScan,
-         ClusterEvents, ComputeSamplePoints, ParallelComputeSamplePoints, Isort, 
-         GetOrderedCriticalPlanes, RecoverTranslationSamplePoints, Get3DNMM,
-         ParallelCalculateNMM:
-
+#RigidMotionsParameterSpaceDecompostion := module() 
+  #option package;
+  #export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM,
+         #CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
+         #ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
+         #ComputeEventsBTypeGrid, ComputeEventsCTypeGrid, ComputeEventsCType,
+         #ComputeEventsAlgebraicNumbers, SplitScan,
+         #ClusterEvents, ComputeSamplePoints, ParallelComputeSamplePoints, Isort, 
+         #GetOrderedCriticalPlanes, RecoverTranslationSamplePoints, Get3DNMM,
+         #ParallelCalculateNMM, ComputeSamplePoint, ComputeAsymptoticABEventsGrid,
+         #ComputeAsymptoticAAEventsGrid:
 
 # Procedure: CayleyTransform
 #   Compute Cayley transform for a 3x3 skew-symmetric matrix.
@@ -110,17 +115,17 @@ end proc:
 
 
 # Procedure: GetQuadric
-#   Compute a quadric
+#   Compute a quadric.
 #
 # Parameters:
-#   R          - a rotation matrix obtained from Cayley transform
+#   R          - a 3x3 rotation matrix obtained from Cayley transform
 #   neighbor   - a vector which points on a neighbor
 #   hGridPlane - a half-grid plane i.e. k_dim + 1/2
-#   axis       - a given axis i.e. 1 = x, 2 = y and 3 = z 
+#   axis       - a given row of R matrix
 #   
-#
 # Output:
-#   Multivariate polynomial
+#   Multivariate polynomial of degree 2 related to the changed of configuration of image patch and
+#   given in [Quadrics:2016] as equation (7).
 GetQuadric := proc( R::~Matrix,
                      neighbor::~Vector,
                      hGridPlane::~Vector,
@@ -139,27 +144,28 @@ end proc:
 #
 # Parameters:
 #   S          - a set of polynomials in three variables
+#   vars       - variables to be eliminated
 #
 # Output:
 #   Univariate polynomial obtained from S in the first variable.
-EliminationResultant := proc( S::~set )
+EliminationResultant := proc( S::~set, vars::~list )
+  option cache:
   local r1, r2, r3, rr1, rr2, rr3, vars;
-  vars := indets(S);
   if nops(S) <> 3 then
     error "Wrong size of the input set. Expected size is 3.";
   fi;
   if not type(S[1], polynom) or not type(S[2], polynom) or not type(S[3], polynom) then
     error "Wrong type of elements. Expected argument is a set of polynomials!"; 
   fi;
-  if nops(vars) <> 3 then
+  if nops(vars) <> 2 then
     error "Wrong number of indeterminates. It should be 3.";
   fi;
-  r1 := resultant( S[1], S[2], vars[3] ):
-  r2 := resultant( S[1], S[3], vars[3] ):
-  r3 := resultant( S[2], S[3], vars[3] ):
-  rr1 := resultant( r1, r2, vars[2] ):
-  rr2 := resultant( r1, r3, vars[2] ):
-  rr3 := resultant( r2, r2, vars[2] ):
+  r1 := resultant( S[1], S[2], vars[2] ):
+  r2 := resultant( S[1], S[3], vars[2] ):
+  r3 := resultant( S[2], S[3], vars[2] ):
+  rr1 := resultant( r1, r2, vars[1] ):
+  rr2 := resultant( r1, r3, vars[1] ):
+  rr3 := resultant( r2, r3, vars[1] ):
   return foldl( gcd, rr1, rr2, rr3 ):
 end proc:
 
@@ -228,8 +234,6 @@ ComputeSetOfQuadrics := proc( R::~Matrix,
   quadrics := Threads:-Map(proc(x) normal(x) * denom(x) end proc, quadrics):
   return quadrics:
 end proc:
-
-
 
 # Procedure: IsAsymptotic
 #   Checks if given quadric has an asymptotic critical value. For this moment a direction is fixed
@@ -325,7 +329,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     elif nops(vars) = 2 then 
       sys := [ q, diff( q, vars[ dim[1] ] ) ];
     fi:
-    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
+    univ := EliminationResultant(sys):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -355,10 +359,6 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
   local s:
   s := proc(i, j)
       local p, prod, ivars, jvars, univ, sys, vars, sol:
-      if i + j mod 100 = 0 then
-        #(*Clear remember tables*)
-        seq(forget(p, forgetpermanent = true), p in {anames('procedure')}):
-      fi:
       vars := indets ( [ Q[i], Q[j] ] ):
       if nops ( vars ) = 3 then
         ivars := [ op( indets( [ Q[i] ] ) ) ]:
@@ -369,7 +369,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
       elif nops(vars) = 2 then
         sys := [ Q[i], Q[j] ]:
       fi:
-      univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
+      univ := EliminationResultant(sys):
       if not type( univ, constant ) then
         sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
         sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -396,12 +396,8 @@ ComputeEventsCTypeGrid := proc( Q )
   local s:
   s := proc (i, j, k)
     local p, sol, univ, sys;
-    if i + j + k mod 100 = 0 then
-      #(*Clear remember tables*)
-      seq(forget(p, forgetpermanent = true), p in {anames('procedure')}):
-    fi:
     sys := { Q[i], Q[j], Q[k] }:
-    univ := RigidMotionsParameterSpaceDecompostion:-EliminationResultant(sys):
+    univ := EliminationResultant(sys):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -415,6 +411,67 @@ ComputeEventsCTypeGrid := proc( Q )
 end proc:
 
 
+# Procedure: ComputeAsymptoticAAEvents
+#   Compute real algebraic numbers which corresponds to 
+#   asymptotic cases given by one quadrics.
+#
+# Parameters:
+#   Q          - a set of quadrics
+#
+# Output:
+#   A list of real algebraic numbers and indexes of quadrics
+#   which corresponds to them.
+ComputeAsymptoticAAEventsGrid:=proc(Q::~set)
+  local list := [], s;
+  s:=proc(i::integer)
+    local numbers := [], sol, rootsF:
+    rootsF := IsAsymptotic(Q[i]):
+    for sol in rootsF do
+      rootsF := rhs(sol):
+      if not type(rootsF, rational) then
+        error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
+      fi:
+      numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rootsF) -
+      numer(rootsF), rootsF, rootsF), [i]]]:
+    od:
+    return numbers;
+  end proc:
+  list:= select(proc(x) return evalb(x<>[]) end, [Grid:-Seq(s(i),i=1..nops(Q))]);
+  return ListTools:-Flatten(list, 1);
+end:
+
+
+# Procedure: ComputeAsymptoticABEvents
+#   Compute real algebraic numbers which corresponds to 
+#   asymptotic cases given by one quadrics.
+#
+# Parameters:
+#   Q          - a set of quadrics
+#
+# Output:
+#   A list of real algebraic numbers and indexes of quadrics
+#   which corresponds to them.
+ComputeAsymptoticABEventsGrid:=proc(Q::~set)
+  local list:=[], s;
+   s:=proc(i::integer, j::integer)
+    local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
+    poly := IsAsymptoticIntersection(Q[i], Q[j]):
+    if poly = NULL then
+      return [];
+    fi:
+    rootsF := RootFinding:-Isolate(poly, op(indets(poly)), output='interval');
+    for rf in rootsF do
+      numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+      op(rf)[2][2]), [i,j]]]: 
+    od:
+    return numbers;
+  end proc:
+  list:=select(proc(x) return evalb(x<>[]) end,
+  [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]);
+  return ListTools:-Flatten(list, 1);
+end proc:
+
+
 # Procedure: ComputeEventsAlgebraicNumbers
 #   Compute and sort events as algebraic numbers 
 #
@@ -422,60 +479,31 @@ end proc:
 #   Q     - set of quadrics or conics
 # Output:
 #   Sorted set of real algebraic numbers
-#
-# TODO:
-#  - Rewrite it in a way which will allow to apply recursive strategy
 ComputeEventsAlgebraicNumbers := proc( Q::~set )
   local events, rootsF, rf, poly, i, j, s, sol:
   local numbers := Array([]):
+  local numAsym;
   local factored, sqrFree:
 
-    events:= {op(ComputeEventsATypeGrid( Q, [2, 3] )), op(ComputeEventsBTypeGrid( Q, 1 )),
-                                                         op(ComputeEventsCTypeGrid( Q ))}:
+  events:= {op(ComputeEventsATypeGrid( Q, [2, 3] )), op(ComputeEventsBTypeGrid( Q, 1 )),
+                                                       op(ComputeEventsCTypeGrid( Q ))}:
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
-      rootsF := RootFinding:-Isolate( sqrFree, output='interval' ):
+      rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
       for rf in rootsF do
         ArrayTools:-Append(numbers, [ Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
         op(rf)[2][2] ), poly[2]]):
       od:
     od:
   od:
-
-  # asymptotic case occurred for one quadric
-  for i from 1 to nops(Q) do
-    rootsF := IsAsymptotic(Q[i]):
-    for sol in rootsF do
-      rootsF := rhs(sol):
-      if not type(rootsF, rational) then
-        error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
-      fi:
-      ArrayTools:-Append(numbers,[Object(RealAlgebraicNumber, lhs(sol) * denom(rootsF) -
-      numer(rootsF), rootsF, rootsF), [i]]): 
-    od:
-  od:
-  print("asymptotic case AA computed");
-
-  for i from 1 to nops(Q) do
-    for j from i + 1 to nops(Q) do
-      poly := IsAsymptoticIntersection(Q[i], Q[j]):
-      if poly = NULL then
-        next;
-      fi:
-      factored := sqrfree( factor( poly ) )[2,..,1]: 
-      for sqrFree in factored do
-        rootsF := RootFinding:-Isolate( sqrFree, op( indets( sqrFree ) ), output='interval'):
-        for rf in rootsF do
-          ArrayTools:-Append(numbers, [ Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-          op(rf)[2][2] ), [i,j]]): 
-        od:
-      od:
-    od:
-  od:
-  print("asymptotic case AB computed");
-
-  numbers := sort( numbers, 
+  
+  numAsym:=ComputeAsymptoticAAEventsGrid(Q);
+  numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
+  numAsym:=ComputeAsymptoticABEventsGrid(Q);
+  numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
+  
+  numbers := sort(numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
                                return true:
@@ -484,7 +512,6 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set )
                              fi:
                            end proc
                   ):
-  print("events sorted");
   return numbers:
 end proc:
 
@@ -561,14 +588,17 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
     error "Bounds of cluster rangers are incorrect": 
   end if:
   for i from first to last do 
-    if i mod 100 = 0 then
-      #(*Clear remember tables*)
-      seq(forget(p, forgetpermanent = true), p in {anames('procedure')}):
-    fi:
     sys := {}: 
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
     end do:
+
+    fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
+    writedata(fileID, [nops(sys)],
+              string, proc (f, x) fprintf(f, %a, x) end proc):
+    fclose(fileID): 
+
+
     vars := indets(sys):
     midpoint := (GetInterval(cluster[i][1][1])[2] + GetInterval(cluster[i+1][1][1])[1])/2:
     sys := Threads:-Map(proc (x) return eval(x, vars[1] = midpoint) <> 0 end proc, sys):
@@ -615,24 +645,21 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list) 
+LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list, nodes:=20) 
   local numbers, events, R: 
   global Q, cluster,rootTmp:
   kernelopts(printbytes=false):
+  Grid:-Setup("local",numnodes=nodes):
   R := CayleyTransform({a,b,c}):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange):
-  numbers := ComputeEventsAlgebraicNumbers(Q):
+  numbers := CodeTools:-Usage(ComputeEventsAlgebraicNumbers(Q)):
   numbers := convert(numbers,list):
-  print("numbers converted");
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
-  print("numbers removed");
   cluster := ClusterEvents(numbers):
-  print("numbers clustered");
   # Collect all unique quadrics
   events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
-  print("all quadrics found in cluster");
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], events]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
@@ -641,18 +668,15 @@ LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list)
   events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
   numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [events,cluster[-1][1][2]]]:
-  print("all quadrics added into the first event");
-  print("cluster size ", upperbound(cluster));
   # The first cluster is heavy so we compute it separately;
-  ComputeSamplePoints(Q,cluster[1..2],1,1, kernelopts(numcpus));
+  ComputeSamplePoints(Q,cluster[1..2],1,1, nodes);
   cluster := cluster[2..-1];
-  Grid:-Setup("local"):
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
-  print("check point before run of grid");
-  Grid:-Launch(ParallelComputeSamplePoints, imports = ['Q, cluster'],numnodes=kernelopts(numcpus),
-  printer=proc(x) return NULL: end proc):
+  Grid:-Launch(ParallelComputeSamplePoints,
+               imports = ['Q, cluster'], numnodes=nodes, printer=proc(x) return NULL: end proc
+              ):
 end proc:
 
 
@@ -787,11 +811,12 @@ end proc;
 #   Simplify the code
 #   After adding the communication approach the number of NMM is much smaller, check this
 CalculateNMM := proc(nType::string, kRange::list, dir::string, id::integer) 
-  local csvFile, data, i, xPlanes, yPlanes, zPlanes, trans, NMM:={}, rotSamp; 
-  local percent := -1, Signatures := {}, sig,fileID, msg;
+  local csvFile, data, s, fileID;
+  local i, xPlanes, yPlanes, zPlanes, trans, NMM:={}, rotSamp; 
+  local percent := -1, Signatures := {}, sig, msg;
   local n := Grid:-NumNodes();
 
-  # read sample points from a file and convert them to appropriate format
+# read sample points from a file and convert them to appropriate format
   csvFile := FileTools:-JoinPath([sprintf(cat(dir,"/sam_%d.csv"), id)], base = homedir);
   data := ImportMatrix(csvFile, 'source' = 'tsv', 'datatype' ='string');
   data := Threads:-Map(proc (x) op(sscanf(x, %a)) end proc, data); 
@@ -837,7 +862,7 @@ end proc:
 ParallelCalculateNMM := proc(nType::string, kRange::list, dir::string) 
   local me;
   me := Grid:-MyNode(); 
-  RigidMotionsParameterSpaceDecompostion:-CalculateNMM(nType, kRange, dir, me);
+  CalculateNMM(nType, kRange, dir, me);
   Grid:-Barrier();
 end proc:
 
@@ -851,10 +876,9 @@ end proc:
 #
 # Output:
 #   Write a set of NMM to a file given by fileName.
-LaunchOnGridGetNMM := proc (nType::string, kRange::list, dir::string) 
-  Grid:-Setup("local"); 
-  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dir, numnodes =
-  kernelopts(numcpus)):
+LaunchOnGridGetNMM := proc (nType::string, kRange::list, dir::string, nodes:=20) 
+  Grid:-Setup("local", numnodes=nodes); 
+  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dir):
 end proc:
 
-end module:
+#end module:
