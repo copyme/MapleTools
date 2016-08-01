@@ -320,7 +320,7 @@ IsAsymptotic := proc(x::polynom)
   if norm(VV,1) = 0 then
     return {a=0};
   fi;
-  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0});
+  sols := [allvalues([solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0})])];
   if sols = NULL or sols = {} then
     return {};
   else
@@ -379,8 +379,8 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     vars := [ op( indets( q ) ) ];
     if nops(vars) = 3 then
       sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
-    elif nops(vars) = 2 then 
-      sys := [ q, diff( q, vars[ dim[1] ] ) ];
+    else
+      error "Only system in three variables is supported!";
     fi:
     univ := EliminationResultant(sys):
     if not type( univ, constant ) then
@@ -419,8 +419,8 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
         prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], ivars ),
                                     VectorCalculus:-Gradient( Q[j], jvars ) )[dir]:
         sys := { Q[i], Q[j], prod }:
-      elif nops(vars) = 2 then
-        sys := [ Q[i], Q[j] ]:
+      else
+        error "Only system in three variables is supported!";
       fi:
       univ := EliminationResultant(sys):
       if not type( univ, constant ) then
@@ -505,23 +505,26 @@ end:
 #   A list of real algebraic numbers and indexes of quadrics
 #   which corresponds to them.
 ComputeAsymptoticABEventsGrid:=proc(Q::~set)
-  local list:=[], s;
+  local listTmp:=[], s;
    s:=proc(i::integer, j::integer)
     local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
     poly := IsAsymptoticIntersection(Q[i], Q[j]):
-    if poly = NULL then
+    if poly = NULL or nops(poly) = 0 then
       return [];
     fi:
-    rootsF := RootFinding:-Isolate(poly, op(indets(poly)), output='interval');
-    for rf in rootsF do
-      numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-      op(rf)[2][2]), [i,j]]]: 
+    factored := factors( poly )[2,..,1]: 
+    for sqrFree in factored do
+       rootsF := RootFinding:-Isolate(sqrFree, op(indets(sqrFree)), output='interval');
+       for rf in rootsF do
+         numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+         op(rf)[2][2]), [i,j]]]: 
+       od:
     od:
     return numbers;
   end proc:
-  list:=select(proc(x) return evalb(x<>[]) end,
+  listTmp:=select(proc(x) return evalb(x<>[]) end,
   [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]);
-  return ListTools:-Flatten(list, 1);
+  return ListTools:-Flatten(listTmp, 1);
 end proc:
 
 
@@ -631,7 +634,8 @@ end proc:
 #   id                 - id which indicates a node
 #
 # Output:
-#   Writes a list of sample points into a file "sam_id.csv"
+#   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
+#   positive since other variation are same up to some similarities (reflections and rotations).
 #
 # TODO:
 #  Split and allow recursive calls
