@@ -621,7 +621,6 @@ ClusterEvents := proc(numbers::list)
             end proc, numbers)
 end proc:
 
-
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions
 #
@@ -640,7 +639,7 @@ end proc:
 # TODO:
 #  Split and allow recursive calls
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer)
-  local i, x, midpoint, sys, samplePoints, fileID, vars:
+  local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvents:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
     error "Bounds of cluster rangers are incorrect": 
   end if:
@@ -657,9 +656,9 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
 
 
     vars := indets(sys):
-    
-    # this does not work as it should 
-    midpoint := (GetInterval(cluster[i][1][1])[2] + GetInterval(cluster[i+1][1][1])[1])/2:
+
+    disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
+    midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     
     sys := Threads:-Map(proc (x) return eval(x, vars[1] = midpoint) <> 0 end proc, sys):
     # Some how negative sample points are still generated.

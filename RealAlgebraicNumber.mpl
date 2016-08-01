@@ -266,8 +266,26 @@ module RealAlgebraicNumber()
       refined := BisectRange(refined);
     od:
     return refined:
-  end proc: 
+  end proc:
 
+  export DisjointRanges::static := proc(a::RealAlgebraicNumber, b::RealAlgebraicNumber)
+    local ll := a, rr := b;
+
+    (* No intersection.*)
+    if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+      return [a,b];
+    fi:
+
+    for i from 1 while 1 = 1 do
+      ll := BisectRange( ll ):
+      rr := BisectRange( rr ):
+
+      (* No intersection.*)
+      if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+        return [ll,rr];
+      fi:
+    od:
+  end proc:
 
 # Method: Compare
 #   A method used to compare two real algebraic numbers.
