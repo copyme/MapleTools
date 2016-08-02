@@ -157,7 +157,7 @@ EliminationResultant := proc( S::~set, vars::~list )
   if not type(S[1], polynom) or not type(S[2], polynom) or not type(S[3], polynom) then
     error "Wrong type of elements. Expected argument is a set of polynomials!"; 
   fi;
-  if nops(vars) <> 2 then
+  if nops(vars) <> 3 then
     error "Wrong number of indeterminates. It should be 3.";
   fi;
   r1 := OneVariableElimination( S[1], S[2], vars[3] ):
@@ -320,10 +320,11 @@ IsAsymptotic := proc(x::polynom)
   if norm(VV,1) = 0 then
     return {a=0};
   fi;
-  sols := [allvalues([solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0})])];
+  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0});
   if sols = NULL or sols = {} then
     return {};
   else
+    sols := [allvalues(op(sols))];
     return sols;
   fi;
 end proc:
@@ -382,7 +383,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     else
       error "Only system in three variables is supported!";
     fi:
-    univ := EliminationResultant(sys, [ op( indets(univ ) ) ]):
+    univ := EliminationResultant(sys, [ op( indets(sys ) ) ]):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -477,15 +478,14 @@ end proc:
 ComputeAsymptoticAAEventsGrid:=proc(Q::~set)
   local list := [], s;
   s:=proc(i::integer)
-    local numbers := [], sol, rootsF:
+    local numbers := [], sol, rootsF, tmp:
     rootsF := IsAsymptotic(Q[i]):
     for sol in rootsF do
-      rootsF := rhs(sol):
-      if not type(rootsF, rational) then
+      if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
-      numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rootsF) -
-      numer(rootsF), rootsF, rootsF), [i]]]:
+      numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
+      numer(rhs(sol)), rhs(sol), rhs(sol)), [i]]]:
     od:
     return numbers;
   end proc:
@@ -639,7 +639,7 @@ end proc:
 # TODO:
 #  Split and allow recursive calls
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer)
-  local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvents:=[]:
+  local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
     error "Bounds of cluster rangers are incorrect": 
   end if:
