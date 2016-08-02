@@ -89,8 +89,8 @@ module RealAlgebraicNumber()
       end if;
       self:-poly := poly;
       if degree(poly) >= 1 then
-        signAtA := signum( eval( self:-poly, op( indets( poly ) ) = a ) );
-        signAtB := signum( eval( self:-poly, op( indets( poly ) ) = b ) );
+        signAtA := signum( eval( poly, indets( poly )[1] = a ) );
+        signAtB := signum( eval( poly, indets( poly )[1] = b ) );
         self:-a := a;
         self:-b := b;
         self:-isRational_ := evalb( self:-a = self:-b and signAtA = 0 );
@@ -105,7 +105,8 @@ module RealAlgebraicNumber()
           self:-a := self:-b;
           self:-isRational_ := true:
         elif signAtA = signAtB and self:-a <> self:-b then
-          error "Interval incorrect! No root in the interval!";
+          error "Interval incorrect! No root in the interval: (%1, %2), for %3 .", self:-a, self:-b,
+          self:-poly;
         fi:
       elif degree( poly ) = 0 then
         self:- denom( poly ) * 'a'  - numer( poly );
@@ -227,8 +228,10 @@ module RealAlgebraicNumber()
      return Object( RealAlgebraicNumber, g, m, m ); 
     elif evalb( signum( eval( self:-poly, var = self:-a ) ) = signAtM ) then
       return Object( RealAlgebraicNumber, self:-poly, m, self:-b );
-    else
+    elif evalb( signum( eval( self:-poly, var = self:-b ) ) = signAtM ) then
       return Object( RealAlgebraicNumber, self:-poly, self:-a, m );
+    else
+      return self;
     end if;
   end proc:
 
@@ -282,7 +285,7 @@ module RealAlgebraicNumber()
   export Compare::static := proc( l::RealAlgebraicNumber, r::RealAlgebraicNumber, $ )          
     local i::integer, a::rational, b::rational, F1::polynom, F2::polynom, G::polynom;
     local ll::RealAlgebraicNumber, rr::RealAlgebraicNumber;
-    
+
     if evalb( l:-poly = r:-poly and l:-a = r:-a and l:-b = r:-b ) then
         return 0;
     end if; 
