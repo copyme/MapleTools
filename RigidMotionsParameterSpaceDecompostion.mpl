@@ -382,7 +382,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list )
     else
       error "Only system in three variables is supported!";
     fi:
-    univ := EliminationResultant(sys):
+    univ := EliminationResultant(sys, [ op( indets(univ ) ) ]):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -422,7 +422,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer )
       else
         error "Only system in three variables is supported!";
       fi:
-      univ := EliminationResultant(sys):
+      univ := EliminationResultant(sys, [ op( indets(sys) ) ]):
       if not type( univ, constant ) then
         sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
         sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -450,7 +450,7 @@ ComputeEventsCTypeGrid := proc( Q )
   s := proc (i, j, k)
     local p, sol, univ, sys;
     sys := { Q[i], Q[j], Q[k] }:
-    univ := EliminationResultant(sys):
+    univ := EliminationResultant(sys, [ op( indets(sys) ) ]):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
@@ -621,7 +621,6 @@ ClusterEvents := proc(numbers::list)
             end proc, numbers)
 end proc:
 
-
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions
 #
@@ -640,7 +639,7 @@ end proc:
 # TODO:
 #  Split and allow recursive calls
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer)
-  local i, x, midpoint, sys, samplePoints, fileID, vars:
+  local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvents:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
     error "Bounds of cluster rangers are incorrect": 
   end if:
@@ -657,7 +656,10 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
 
 
     vars := indets(sys):
-    midpoint := (GetInterval(cluster[i][1][1])[2] + GetInterval(cluster[i+1][1][1])[1])/2:
+
+    disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
+    midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
+    
     sys := Threads:-Map(proc (x) return eval(x, vars[1] = midpoint) <> 0 end proc, sys):
     # Some how negative sample points are still generated.
     sys := [op(sys), 0 < vars[2], 0 < vars[3]]:
