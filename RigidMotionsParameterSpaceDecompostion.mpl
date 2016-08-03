@@ -324,7 +324,6 @@ IsAsymptotic := proc(x::polynom)
   if sols = NULL or sols = {} then
     return {};
   else
-    sols := [allvalues(op(sols))];
     return sols;
   fi;
 end proc:
@@ -670,11 +669,11 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
     samplePoints := remove(proc(x) if rhs(x[1]) < 0 or rhs(x[2]) < 0 then return true: else return
                                                                      false: fi: end, samplePoints):
 
-    fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
-    writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
-               rhs(x[1]), rhs(x[2])] end proc, samplePoints),
-              string, proc (f, x) fprintf(f, %a, x) end proc):
-    fclose(fileID): 
+    #fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
+    #writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
+               #rhs(x[1]), rhs(x[2])] end proc, samplePoints),
+              #string, proc (f, x) fprintf(f, %a, x) end proc):
+    #fclose(fileID): 
   end do:
   return NULL:
 end proc:

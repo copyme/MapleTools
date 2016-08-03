@@ -272,7 +272,7 @@ module RealAlgebraicNumber()
   end proc:
 
   export DisjointRanges::static := proc(a::RealAlgebraicNumber, b::RealAlgebraicNumber)
-    local ll := a, rr := b;
+    local ll := a, rr := b, i;
 
     (* No intersection.*)
     if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
