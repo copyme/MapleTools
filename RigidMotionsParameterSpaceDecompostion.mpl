@@ -60,14 +60,14 @@
 #   Compute Cayley transform for a 3x3 skew-symmetric matrix.
 #
 # Parameters:
-#   vars   - set of variables
+#   vars   - list of variables
 #
 # Output:
 #   3x3 (or 2x2) rotation matrix
 # 
 # Links:
 #   https://en.wikipedia.org/wiki/Cayley_transform
-CayleyTransform := proc( vars::~set )
+CayleyTransform := proc( vars::list )
   local A::Matrix, QLSide::Matrix, QRSide::Matrix, dim:
   dim := nops(vars);
   if dim = 1 then
@@ -640,6 +640,7 @@ end proc:
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer)
   local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
+    print(first, last, upperbound(cluster));
     error "Bounds of cluster rangers are incorrect": 
   end if:
   for i from first to last do 
@@ -647,12 +648,6 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
     end do:
-
-    fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
-    writedata(fileID, [nops(sys)],
-              string, proc (f, x) fprintf(f, %a, x) end proc):
-    fclose(fileID): 
-
 
     vars := indets(sys):
 
@@ -669,14 +664,29 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
     samplePoints := remove(proc(x) if rhs(x[1]) < 0 or rhs(x[2]) < 0 then return true: else return
                                                                      false: fi: end, samplePoints):
 
-    #fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
-    #writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
-               #rhs(x[1]), rhs(x[2])] end proc, samplePoints),
-              #string, proc (f, x) fprintf(f, %a, x) end proc):
-    #fclose(fileID): 
+    fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
+    writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
+               rhs(x[1]), rhs(x[2])] end proc, samplePoints),
+              string, proc (f, x) fprintf(f, %a, x) end proc):
+    fclose(fileID): 
   end do:
   return NULL:
 end proc:
+
+CalculateHeavyIntersection := proc(Q, cluster::list)
+  local i, card;
+  local skipped := [];
+  print("heavy");
+  for i from 1 to nops(cluster) -1 do
+   card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
+   if card >= 81 then
+      skipped := [op(skipped),i];
+     ComputeSamplePoints(Q,cluster,i,i, -1);
+   fi
+  od;
+  print(skipped);
+  return skipped;
+end proc;
 
 
 # Procedure: ParallelComputeSamplePoints
@@ -703,12 +713,12 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list, nodes:=20) 
+LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, nodes:=20) 
   local numbers, events, R: 
   global Q, cluster,rootTmp:
   kernelopts(printbytes=false):
   Grid:-Setup("local",numnodes=nodes):
-  R := CayleyTransform({a,b,c}):
+  R := CayleyTransform(vars):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange):
@@ -727,7 +737,9 @@ LaunchOnGridComputeSamplePoints := proc (nType::string, kRange::list, nodes:=20)
   numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [events,cluster[-1][1][2]]]:
   # The first cluster is heavy so we compute it separately;
-  ComputeSamplePoints(Q,cluster[1..2],1,1, nodes);
+  CalculateHeavyIntersection(Q, cluster); 
+  return 1;
+  #ComputeSamplePoints(Q,cluster[1..2],1,1, nodes);
   cluster := cluster[2..-1];
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
@@ -766,44 +778,37 @@ end:
 # Output:
 #   Returns signature of order and ordered critical planes 
 #   in the remainder range for X, Y and Z directions.
-GetOrderedCriticalPlanes := proc(nType::string, kRange::list, samplePoints::list) 
-  local params; 
-  local R := CayleyTransform({a,b,c}); 
-  local n := GetNeighborhood(nType)[1 .. 6]; 
-  local T := combinat:-cartprod([n, kRange]); 
-  local xPlanes := []; 
-  local yPlanes := []; 
-  local zPlanes := []; 
+GetOrderedCriticalPlanes := proc(vars::list, samplePoints::list, planes::list) 
+  local params;
+  local sdPlanes := [[],[],[]];
   local xSig, ySig, zSig, Signature;
   
-  while not T[finished] do 
-    params := T[nextvalue](); 
-    xPlanes := [op(xPlanes), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
-    yPlanes := [op(yPlanes), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
-    zPlanes := [op(zPlanes), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
-  end do; 
-  xPlanes := eval(xPlanes, {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  yPlanes := eval(yPlanes, {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  zPlanes := eval(zPlanes, {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
+  if nops(vars) <> 3 then
+    error "Only 3D arrangement is supported.";
+  fi;
   
-  xSig, xPlanes := Isort(xPlanes); 
-  ySig, yPlanes := Isort(yPlanes); 
-  zSig, zPlanes := Isort(zPlanes);
+  sdPlanes[1] := eval(sdPlanes[1], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
+  sdPlanes[2] := eval(sdPlanes[2], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
+  sdPlanes[3] := eval(sdPlanes[3], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
+  
+  xSig, sdPlanes[1] := Isort(sdPlanes[1]); 
+  ySig, sdPlanes[2] := Isort(sdPlanes[2]); 
+  zSig, sdPlanes[3] := Isort(sdPlanes[3]);
   
   # remove all out of the range regions 
-  xPlanes := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, xPlanes));
-  yPlanes := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, yPlanes));
-  zPlanes := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, zPlanes));
+  sdPlanes[1] := remove(proc(x) return evalb(x <= -1/2) end proc,
+  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[1]));
+  sdPlanes[2] := remove(proc(x) return evalb(x <= -1/2) end proc,
+  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[2]));
+  sdPlanes[3] := remove(proc(x) return evalb(x <= -1/2) end proc,
+  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[3]));
   # add region boarders
-  xPlanes := [-1/2,op(xPlanes),1/2];
-  yPlanes := [-1/2,op(yPlanes),1/2];
-  zPlanes := [-1/2,op(zPlanes),1/2]; 
+  sdPlanes[1] := [-1/2,op(sdPlanes[1]),1/2];
+  sdPlanes[2] := [-1/2,op(sdPlanes[2]),1/2];
+  sdPlanes[3] := [-1/2,op(sdPlanes[3]),1/2]; 
 
   Signature := cat(op(map(proc (x) sprintf("%d", x) end proc, [op(xSig), op(ySig), op(zSig)])));
-  return Signature, xPlanes, yPlanes, zPlanes;
+  return Signature, sdPlanes;
 end proc:
 
 
@@ -817,14 +822,14 @@ end proc:
 #
 # Output:
 #   Returns centers of frames in the remainder range
-RecoverTranslationSamplePoints := proc(xPlanes::list, yPlanes::list, zPlanes::list) 
+RecoverTranslationSamplePoints := proc(planes::list) 
   local i, j, k; 
   local samples := []; 
-  for i to upperbound(xPlanes) - 1 do
-    for j to upperbound(yPlanes) - 1 do 
-      for k to upperbound(zPlanes) - 1 do 
-        samples := [op(samples), [(1/2)*add(xPlanes[i .. i+1]), 
-                    (1/2)*add(yPlanes[j.. j+1]), (1/2)*add(zPlanes[k .. k+1])]];
+  for i to upperbound(planes[1]) - 1 do
+    for j to upperbound(planes[2]) - 1 do 
+      for k to upperbound(planes[3]) - 1 do 
+        samples := [op(samples), [(1/2)*add(planes[1][i .. i+1]), 
+                    (1/2)*add(planes[2][j.. j+1]), (1/2)*add(planes[3][k .. k+1])]];
       end do;
     end do;
   end do; 
@@ -851,6 +856,26 @@ Get3DNMM := proc(nType::string, samplesTrans::list, sampleRot::list, NMMContaine
   end proc, n),x in samplesTrans)};
 end proc;
 
+CriticalPlanes := proc(vars::list, nType::string, kRange::list)
+  local R := CayleyTransform(vars);
+  # we remove 7th element -- [0, 0, 0]
+  local n := subsop(7=NULL, GetNeighborhood(nType)); 
+  local T := combinat:-cartprod([n, kRange]);
+  local planes := [[],[],[]]; 
+  local params;
+  print("test");
+  while not T[finished] do 
+    params := T[nextvalue](); 
+    planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
+    planes[2] := [op(planes[2]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
+    planes[3] := [op(planes[3]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
+  end do;
+
+ return planes;
+
+end proc;
+
+
 # Procedure: CalculateNMM
 #   Reads data from hard drive and generates NMM
 #
@@ -868,11 +893,12 @@ end proc;
 #   Export printing code into a procedure
 #   Simplify the code
 #   After adding the communication approach the number of NMM is much smaller, check this
-CalculateNMM := proc(nType::string, kRange::list, dir::string, id::integer) 
+CalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string, id::integer) 
   local csvFile, data, s, fileID;
-  local i, xPlanes, yPlanes, zPlanes, trans, NMM:={}, rotSamp; 
+  local i, sdPlanes := [], trans, NMM:={}, rotSamp; 
   local percent := -1, Signatures := {}, sig, msg;
   local n := Grid:-NumNodes();
+  local planes := CriticalPlanes(vars, nTypes, kRange);
 
 # read sample points from a file and convert them to appropriate format
   csvFile := FileTools:-JoinPath([sprintf(cat(dir,"/sam_%d.csv"), id)], base = homedir);
@@ -890,12 +916,12 @@ CalculateNMM := proc(nType::string, kRange::list, dir::string, id::integer)
     end if;
     rotSamp := convert(data[i], list); 
     # discard the sample points for which NMM are already computed
-    sig, xPlanes, yPlanes, zPlanes := GetOrderedCriticalPlanes(nType, kRange, rotSamp); 
+    sig, sdPlanes := GetOrderedCriticalPlanes(nType, kRange, rotSamp, planes); 
     if member( sig, Signatures ) then
       next;
     end if;
 
-    trans := RecoverTranslationSamplePoints(xPlanes,yPlanes, zPlanes); 
+    trans := RecoverTranslationSamplePoints(sdPlanes); 
     Get3DNMM(nType, trans, rotSamp, NMM);
 
     Signatures := Signatures union {sig};
@@ -917,10 +943,10 @@ end proc:
 #
 # Output:
 #   Set of NMM
-ParallelCalculateNMM := proc(nType::string, kRange::list, dir::string) 
+ParallelCalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string) 
   local me;
   me := Grid:-MyNode(); 
-  CalculateNMM(nType, kRange, dir, me);
+  CalculateNMM(vars, nType, kRange, dir, me);
   Grid:-Barrier();
 end proc:
 
