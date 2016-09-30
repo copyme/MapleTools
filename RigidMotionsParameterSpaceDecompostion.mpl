@@ -637,13 +637,16 @@ end proc:
 #
 # TODO:
 #  Split and allow recursive calls
-ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer)
+ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
+                             last::integer, id::integer, skipped::list:=[])
   local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
-    print(first, last, upperbound(cluster));
-    error "Bounds of cluster rangers are incorrect": 
+    error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
+    if i in skipped then
+      next;
+    fi:
     sys := {}: 
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
@@ -673,18 +676,26 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integ
   return NULL:
 end proc:
 
-CalculateHeavyIntersection := proc(Q, cluster::list)
+# Procedure: ComputeSamplePoints
+#   Computes sample points for rotational part of rigid motions using the grid framework
+#
+#
+# Parameters:
+#   nType      - size of neighborhood i.e. N_1, N_2, N_3. 
+#   kRange     - a range of planes to consider
+# Output:
+#   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
+#   thread during computations.
+CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer)
   local i, card;
   local skipped := [];
-  print("heavy");
   for i from 1 to nops(cluster) -1 do
    card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
-   if card >= 81 then
+   if card >= treshold then
       skipped := [op(skipped),i];
      ComputeSamplePoints(Q,cluster,i,i, -1);
    fi
   od;
-  print(skipped);
   return skipped;
 end proc;
 
@@ -713,9 +724,9 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, nodes:=20) 
+LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, treshold::integer, nodes:=20) 
   local numbers, events, R: 
-  global Q, cluster,rootTmp:
+  global Q, cluster,rootTmp, skipped:
   kernelopts(printbytes=false):
   Grid:-Setup("local",numnodes=nodes):
   R := CayleyTransform(vars):
@@ -737,15 +748,12 @@ LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list
   numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [events,cluster[-1][1][2]]]:
   # The first cluster is heavy so we compute it separately;
-  CalculateHeavyIntersection(Q, cluster); 
-  return 1;
-  #ComputeSamplePoints(Q,cluster[1..2],1,1, nodes);
-  cluster := cluster[2..-1];
+  skipped := CalculateHeavyIntersection(Q, cluster, treshold); 
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   Grid:-Launch(ParallelComputeSamplePoints,
-               imports = ['Q, cluster'], numnodes=nodes, printer=proc(x) return NULL: end proc
+               imports = ['Q, cluster, skipped'], numnodes=nodes, printer=proc(x) return NULL: end proc
               ):
 end proc:
 
@@ -863,7 +871,6 @@ CriticalPlanes := proc(vars::list, nType::string, kRange::list)
   local T := combinat:-cartprod([n, kRange]);
   local planes := [[],[],[]]; 
   local params;
-  print("test");
   while not T[finished] do 
     params := T[nextvalue](); 
     planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
