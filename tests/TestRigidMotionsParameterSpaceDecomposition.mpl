@@ -1,7 +1,7 @@
-# File: TestRigidMotionsParameterSpaceDecompostion.mpl  
+# File: TestRigidMotionsParameterSpaceDecomposition.mpl  
 #
 # Description:
-#  This file contains tests for the module RigidMotionsParameterSpaceDecompostion.
+#  This file contains tests for the module RigidMotionsParameterSpaceDecomposition.
 #
 # Author:
 #  Kacper Pluta - kacper.pluta@esiee.fr
@@ -37,7 +37,7 @@
 #
 
 
-TestRigidMotionsParameterSpaceDecompostion := module()
+TestRigidMotionsParameterSpaceDecomposition := module()
   option package;
   local init, Test, CheckInit;
   export InitModule, TestCayleyTransform, TestGetNeighborhood, TestGetQuadric,
@@ -47,7 +47,10 @@ TestRigidMotionsParameterSpaceDecompostion := module()
   InitModule := proc(path::string)
     local mplFile;
     mplFile :=
-    FileTools:-JoinPath([sprintf("%s/RigidMotionsParameterSpaceDecompostion.mpl",path)],base=homedir):
+    FileTools:-JoinPath([sprintf("%s/RigidMotionsParameterSpaceDecomposition.mpl",path)],base=homedir):
+    read mplFile: 
+    mplFile := 
+    FileTools:-JoinPath([sprintf("%s/RigidMotionsParameterSpaceCommon.mpl",path)],base=homedir):
     read mplFile: 
     Test := CodeTools:-Test;
     init := true:
@@ -63,7 +66,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
   TestCayleyTransform :=proc()
     local CayleyTransform;
     CheckInit();
-    CayleyTransform := RigidMotionsParameterSpaceDecompostion:-CayleyTransform;
+    CayleyTransform := RigidMotionsParameterSpaceDecomposition:-CayleyTransform;
     Test( indets( CayleyTransform( {a} ) ), {a}, label="CayleyTransform: Test Pass 1");
     Test( whattype( CayleyTransform( {a} ) ), Matrix, label="CayleyTransform: Test Pass 2");
     Test( {upperbound( CayleyTransform( {a} ) )}, {2, 2}, label="CayleyTransform: Test Pass 3");
@@ -81,7 +84,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
   TestGetNeighborhood := proc()
     local GetNeighborhood;
     CheckInit();
-    GetNeighborhood := RigidMotionsParameterSpaceDecompostion:-GetNeighborhood;
+    GetNeighborhood := RigidMotionsParameterSpaceDecomposition:-GetNeighborhood;
     Test( whattype( GetNeighborhood("N1") ), list, label="GetNeighborhood: Test Pass 1");
     Test( nops( ListTools:-MakeUnique( GetNeighborhood("N1") ) ), 7, label="GetNeighborhood: Test Pass 2");
     Test( whattype( GetNeighborhood("N2") ), list, label="GetNeighborhood: Test Pass 3");
@@ -96,11 +99,11 @@ TestRigidMotionsParameterSpaceDecompostion := module()
   TestGetQuadric := proc()
     local GetQuadric, R, N1, N2, N3;
     CheckInit();
-    GetQuadric := RigidMotionsParameterSpaceDecompostion:-GetQuadric;
-    R := RigidMotionsParameterSpaceDecompostion:-CayleyTransform( {a, b, c} );
-    N1 := RigidMotionsParameterSpaceDecompostion:-GetNeighborhood( "N1" );
-    N2 := RigidMotionsParameterSpaceDecompostion:-GetNeighborhood( "N2" );
-    N3 := RigidMotionsParameterSpaceDecompostion:-GetNeighborhood( "N3" );
+    GetQuadric := RigidMotionsParameterSpaceDecomposition:-GetQuadric;
+    R := RigidMotionsParameterSpaceDecomposition:-CayleyTransform( {a, b, c} );
+    N1 := RigidMotionsParameterSpaceDecomposition:-GetNeighborhood( "N1" );
+    N2 := RigidMotionsParameterSpaceDecomposition:-GetNeighborhood( "N2" );
+    N3 := RigidMotionsParameterSpaceDecomposition:-GetNeighborhood( "N3" );
 
     Test( type( GetQuadric( R, Vector( N1[1] ), 
           Vector([1/2, 1/2, 1/2]), 1 ), polynom ),
@@ -126,36 +129,32 @@ TestRigidMotionsParameterSpaceDecompostion := module()
 
 
   TestEliminationResultant := proc()
-    local p1, p2, p3, EliminationResultant;
+    local p1, p2, p3;
     CheckInit();
-    EliminationResultant := RigidMotionsParameterSpaceDecompostion:-EliminationResultant;
     p1 := -15*a^4*b-59*a*b*c^3+30*a^2*c^2-27*a*b^3+16*c^2-28*b;  
     p2 := -48*a^3*b^2+53*a^2*b*c^2-91*a^2*c-88*b*c^2+92*c^2+43*c;  
     p3 := 9*a^3*c^2-60*a*b*c^3-83*b*c^4+83*a^2*c^2+16*b^2*c+71*b^2;
 
-    Test( EliminationResultant( {p1, p2, p3} ), 0, label="EliminationResultant: Test Pass 1" );
-    Test( EliminationResultant( {p1, p2} ), "Wrong size of the input", testerror,
-          label="EliminationResultant: Test Pass 2" );
-    Test( EliminationResultant( {"test", p2, p3} ), "Wrong type of", testerror,
+    Test( EliminationResultant( {p1, p2, p3}, [a, b, c] ), 0, label="EliminationResultant: Test Pass 1" );
+    Test( EliminationResultant( {p1, p2}, [a, b, c] ), 0, label="EliminationResultant: Test Pass 2" );
+    Test( EliminationResultant( {"test", p2, p3}, [a, b, c] ), "Wrong type of", testerror,
           label="EliminationResultant: Test Pass 3" );
-    Test( EliminationResultant( {p1, "test", p3} ), "Wrong type of", testerror,
+    Test( EliminationResultant( {p1, "test", p3}, [a, b, c] ), "Wrong type of", testerror,
           label="EliminationResultant: Test Pass 4" );
-    Test( EliminationResultant( {p1, p2, "test"} ), "Wrong type of", testerror,
+    Test( EliminationResultant( {p1, p2, "test"}, [a, b, c] ), "Wrong type of", testerror,
           label="EliminationResultant: Test Pass 5" );
-    Test( EliminationResultant( {x, x^2, 2*x^4} ), "Wrong number of", testerror,
+    Test( EliminationResultant( {x, x^2, 2*x^4}, [x] ), "Wrong number of", testerror,
           label="EliminationResultant: Test Pass 6" );
-    Test( EliminationResultant( {x, x^2, 2*y^4} ), "Wrong number of", testerror,
-          label="EliminationResultant: Test Pass 7" );
-    Test( EliminationResultant( {x*z*d, x^2, 2*y^4} ), "Wrong number of", testerror,
-          label="EliminationResultant: Test Pass 8" );
-    Test( type(EliminationResultant( {2*b, -6*c, a^2+b^2-3*c^2-3} ), polynom ), true,
+    Test( EliminationResultant( {x, x^2, 2*y^4}, [x, y] ), x, label="EliminationResultant: Test Pass 7" );
+    Test( EliminationResultant( {x*z*d, x^2, 2*y^4}, [x, y, d, z] ), x, label="EliminationResultant: Test Pass 8" );
+    Test( type(EliminationResultant( {2*b, -6*c, a^2+b^2-3*c^2-3}, [a, b, c] ), polynom ), true,
           label="EliminationResultant: Test Pass 9" );
   end proc;
 
  TestIsMonotonic := proc()
  local p1, p2, IsMonotonic;
     CheckInit();
-    IsMonotonic := RigidMotionsParameterSpaceDecompostion:-IsMonotonic;
+    IsMonotonic := RigidMotionsParameterSpaceDecomposition:-IsMonotonic;
     p1 := a^2+b^2-3*c^2-3;
     p2 := x^2 + 1;
     Test( IsMonotonic( p1 ), false, label="IsMonotonic: Test Pass 1" );
@@ -170,8 +169,8 @@ TestRigidMotionsParameterSpaceDecompostion := module()
     local ComputeSetOfQuadrics, R, RR, RRR, kRange := [-1, 0, 1], kRange2 := [-2, -1, 0, 1, 2],
                                                            kRange3 := [-3, -2, -1, 0, 1, 2, 3]; 
     CheckInit();
-    ComputeSetOfQuadrics := RigidMotionsParameterSpaceDecompostion:-ComputeSetOfQuadrics;
-    R := RigidMotionsParameterSpaceDecompostion:-CayleyTransform( {a, b, c} );
+    ComputeSetOfQuadrics := RigidMotionsParameterSpaceDecomposition:-ComputeSetOfQuadrics;
+    R := RigidMotionsParameterSpaceDecomposition:-CayleyTransform( {a, b, c} );
     RR := Matrix(3, 3, [[-35,80,-82],[21,19,-70],[90,88,41]]); 
     RRR := Matrix(4, 4, [[-44,-1,-26,12],[-38,63,30,45],[-38,-23,10,-14],[91,-63,22,60]]); 
 
@@ -200,7 +199,7 @@ TestRigidMotionsParameterSpaceDecompostion := module()
  TestIsAsymptotic := proc()
    local IsAsymptotic;
    CheckInit();
-   IsAsymptotic := RigidMotionsParameterSpaceDecompostion:-IsAsymptotic;
+   IsAsymptotic := RigidMotionsParameterSpaceDecomposition:-IsAsymptotic;
    
    Test(IsAsymptotic(c^2 + 2 * b * c + b^2 + c * a - c + b), {a = 2}, label="IsAsymptotic: Test Pass 1");
    Test(IsAsymptotic(b * c + b^2 + c * a + 1), {}, label="IsAsymptotic: Test Pass 2");

@@ -9,9 +9,9 @@
 #   Univariate polynomial obtained from S in the first variable.
 EliminationResultant := proc( S::~set, vars::~list )
   option cache:
-  local p, var, res := S;
-  if nops(S) < 3 then
-    error "Wrong size of the input set. Expected size is 3.";
+  local p, var, res := S, permm;
+  if nops(S) < 2 then
+    error "Wrong size of the input set. Expected size is at least 2.";
   fi;
   if not andmap(type, S, `polynom`) then
     error "Wrong type of elements. Expected argument is a set of polynomials!"; 
@@ -20,10 +20,10 @@ EliminationResultant := proc( S::~set, vars::~list )
     error "Wrong number of indeterminates. It should be 3.";
   fi;
 
-   for var in vars[2..-1]
-       perm := combinat:-permute(res, 2);
+   for var in vars[2..] do
+       permm := combinat:-permute(res, 2);
        res := [];
-     for p in perm
+     for p in permm do
        res := [op(res), OneVariableElimination(p[1], p[2], var)]:
      od;
    od;
