@@ -17,7 +17,7 @@ ComputeEventsAType2D := proc( Q )
     local sys, univ, sol, vars:
     local q := Q[i];
     vars := [ op( indets( q ) ) ];
-    if nops(vars) <> 2 then
+    if nops(vars) = 2 then
       sys := { q, diff( q, vars[2] ) };
     else
       error "Only system in two variables is supported! (%1)", q;
