@@ -174,7 +174,8 @@ ComputeSamplePoints2D := proc(Q2D2::~set, cluster2D2::list, first::integer,
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
    # intersection of a line with  conics
-    sys := eval(sys, vars[1] = midpoint):
+    # never call eval with sets!
+    sys := eval(convert(sys, list), vars[1] = midpoint):
     oneD := ComputeEventsAType1D(sys);
 
     if oneD = NULL then

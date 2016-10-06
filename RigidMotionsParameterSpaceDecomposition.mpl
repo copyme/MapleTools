@@ -448,7 +448,8 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
 
     disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
-    sys := eval(sys, vars[1] = midpoint);
+    # never call eval with sets!!
+    sys := eval(convert(sys, list), vars[1] = midpoint);
 
    if grid then 
      LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id);
