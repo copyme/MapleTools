@@ -36,7 +36,11 @@ ComputeEventsAType2D := proc( Q )
       fi:
     end if:
   end proc:
-  return [seq(s(i),i=1..nops(Q))]:
+  if grid then
+    return [Grid:-Seq(s(i),i=1..nops(Q))]:
+  else 
+    return [seq(s(i),i=1..nops(Q))]:
+  fi;
 end proc:
 
 # Procedure: ComputeEventsBType2D
@@ -50,7 +54,7 @@ end proc:
 # Output:
 #   Indexes of quadrics which intersect and a component of a vector product of 
 #   their gradients in given direction have a common root.
-ComputeEventsBType2D := proc( Q )
+ComputeEventsBType2D := proc( Q, grid::boolean )
   local s:
   s := proc (i, j)
     local p, sol, univ, sys;
@@ -68,7 +72,11 @@ ComputeEventsBType2D := proc( Q )
     fi;
     return NULL:
    end proc:
-   return [seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+   if grid then
+     return [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+   else
+     return [seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+   fi;
 end proc:
 
 # Procedure: ComputeEventsAlgebraicNumbers2D
@@ -78,7 +86,7 @@ end proc:
 #   Q     - set of conics
 # Output:
 #   Sorted set of real algebraic numbers
-ComputeEventsAlgebraicNumbers2D := proc( Q::~set )
+ComputeEventsAlgebraicNumbers2D := proc( Q, grid::boolean )
   local events, rootsF, rf, poly:
   local numbers := Array([]):
   local factored, sqrFree:
@@ -123,6 +131,21 @@ ComputeEventsAType1D := proc( Q )
   return numbers;
 end proc:
 
+
+# Procedure: ParallelComputeSamplePoints2D
+#   Computes sample points for rotational part of rigid motions. It should be call via Grid
+#   framework.
+#
+ParallelComputeSamplePoints2D := proc () 
+  local me, numNodes, n;
+  me := Grid:-MyNode();
+  numNodes := Grid:-NumNodes();
+  # cluster-1 because the last cluster is a doubled cluster[-2]
+  n := trunc((upperbound(cluster)-1)/numNodes);
+  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, me, aValue);
+  Grid:-Barrier();
+end proc:
+
 # Procedure: ComputeSamplePoints2D
 #   Computes sample points for rotational part of rigid motions
 #
@@ -138,10 +161,15 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-ComputeSamplePoints2D := proc (Q::~set, cluster::list)
+ComputeSamplePoints2D := proc(Q::~set, cluster::list, first::integer,
+                             last::integer, id::integer, aValue)
   local i, j, x, midpoint, sys, samplePoints := [], fileID, vars, disjointEvent:=[]:
   local oneD, tmp;
-  for i from 1 to upperbound(cluster) - 1 do 
+  if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
+    error "Bounds of the cluster range are incorrect.": 
+  end if:
+  for i from first to last do 
+
     sys := {}: 
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
@@ -160,14 +188,14 @@ ComputeSamplePoints2D := proc (Q::~set, cluster::list)
     fi:
     oneD := convert(oneD, list);
     oneD := sort(oneD, 
-                           proc( l, r ) 
-                             if Compare( l, r ) = -1 then
-                               return true:
-                             else 
-                               return false:
-                             fi:
-                           end proc
-                  ):
+                         proc( l, r ) 
+                           if Compare( l, r ) = -1 then
+                             return true:
+                           else 
+                             return false:
+                           fi:
+                         end proc
+                ):
     tmp, oneD := selectremove(proc(x) return evalb(GetInterval(x)[2] < 0); end proc, oneD):
     if nops(tmp) <> 0 then
       oneD := [tmp[-1], op(oneD)];
@@ -175,24 +203,58 @@ ComputeSamplePoints2D := proc (Q::~set, cluster::list)
     if upperbound(oneD) > 0 then
       for j from 1 to upperbound(oneD) - 1 do
         disjointEvent := DisjointRanges(oneD[j],oneD[j+1]);
-        samplePoints := [op(samplePoints), [midpoint, (GetInterval(disjointEvent[1])[2] +
+        samplePoints := [op(samplePoints), [aValue, midpoint, (GetInterval(disjointEvent[1])[2] +
                                                        GetInterval(disjointEvent[2])[1])/2]];
       od:
-      samplePoints := [op(samplePoints), [midpoint, GetInterval(oneD[-1])[2] + 1/2 ]];
+      samplePoints := [op(samplePoints), [aValue, midpoint, GetInterval(oneD[-1])[2] + 1/2]];
     fi:
-
-
-    #samplePoints := remove(proc(x) if rhs(x[1]) < 0 or rhs(x[2]) < 0 then return true: else return
-                                                                     #false: fi: end, samplePoints):
-
-    #fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
-    #writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
-               #rhs(x[1]), rhs(x[2])] end proc, samplePoints),
-              #string, proc (f, x) fprintf(f, %a, x) end proc):
-    #fclose(fileID):
-  od:
-
-  return samplePoints:
+ od:
+ if nops(samplePoints) <> 0 then
+   fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
+   writedata(fileID, samplePoints, string, proc (f, x) fprintf(f, %a, x) end proc):
+   fclose(fileID):
+ fi:
+ return NULL;
 end proc:
+
+
+# Procedure: ComputeSamplePoints2D
+#   Computes sample points for rotational part of rigid motions using the grid framework
+#
+#
+# Parameters:
+#   nType      - size of neighborhood i.e. N_1, N_2, N_3. 
+#   kRange     - a range of planes to consider
+# Output:
+#   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
+#   thread during computations.
+LaunchOnGridComputeSamplePoints2D := proc (s::set, midpoint, nodes::integer) 
+
+  local numbers, events, R, rootTmp: 
+  global Q := s, cluster, aValue := midpoint:
+  numbers := convert(ComputeEventsAlgebraicNumbers2D(Q), list);
+  print(nops(numbers));
+  numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  print(nops(numbers));
+  cluster := ClusterEvents(numbers):
+  # Collect all unique quadrics
+  #events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
+  # assign all quadrics to the second event
+  cluster := [[[cluster[1][1][1], convert(Q,list)]], op(cluster[2..])]:
+  # add the last slice twice but shifted to calculate correctly last quadrics
+  events := cluster[-1][1][1]:
+  rootTmp:= GetInterval(events)[2]+1/4;
+  events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
+  numer(rootTmp), rootTmp, rootTmp):
+  cluster := [op(cluster), [[events,cluster[-1][1][2]]]]:
+  # The first cluster is heavy so we compute it separately;
+  # We define printer as a procedure which returns NULL to avoid a memory leak problem while
+  # writing to a file from a node. It seems that while fprintf is called it also calls printf
+  # which is a default printer function. Therefore, data are returned to node of ID 0. 
+  Grid:-Launch(ParallelComputeSamplePoints2D,
+               imports = ['Q, cluster, aValue'], numnodes=nodes, printer=proc(x) return NULL: end proc
+               ):
+end proc:
+
 
 

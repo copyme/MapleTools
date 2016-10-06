@@ -452,12 +452,10 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-# TODO:
-#  Split and allow recursive calls
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
                              last::integer, id::integer, skipped::list:=[])
   local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
-  if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
+  if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
@@ -542,8 +540,8 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
 LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, treshold::integer, nodes:=20) 
-  local numbers, events, R: 
-  global Q, cluster,rootTmp, skipped:
+  local numbers, events, R, rootTmp: 
+  global Q, cluster, skipped:
   kernelopts(printbytes=false):
   Grid:-Setup("local",numnodes=nodes):
   R := CayleyTransform(vars):
@@ -552,7 +550,7 @@ LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list
        ComputeSetOfQuadrics(R, nType, 3, kRange):
   numbers := CodeTools:-Usage(ComputeEventsAlgebraicNumbers(Q)):
   numbers := convert(numbers,list):
-  numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   cluster := ClusterEvents(numbers):
   # Collect all unique quadrics
   events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
