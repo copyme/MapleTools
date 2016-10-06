@@ -11,20 +11,17 @@
 #
 # Comment:
 #  - only the first direction is supported since EliminationResultant is used
-ComputeEventsAType2D := proc( Q )
+ComputeEventsAType2D := proc( Q2D2, grid::boolean )
   local s:
    s := proc(i::integer)
     local sys, univ, sol, vars:
-    local q := Q[i];
+    local q := Q2D2[i];
     vars := [ op( indets( q ) ) ];
     if nops(vars) = 2 then
       sys := { q, diff( q, vars[2] ) };
     else
       error "Only system in two variables is supported! (%1)", q;
     fi:
-    #if not RootFinding:-HasRealRoots(sys) then
-      #return NULL;
-    #fi;
     univ := EliminationResultant(sys, [ op( indets(sys ) ) ]):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
@@ -37,9 +34,9 @@ ComputeEventsAType2D := proc( Q )
     end if:
   end proc:
   if grid then
-    return [Grid:-Seq(s(i),i=1..nops(Q))]:
+    return [Grid:-Seq(s(i),i=1..nops(Q2D2))]:
   else 
-    return [seq(s(i),i=1..nops(Q))]:
+    return [seq(s(i),i=1..nops(Q2D2))]:
   fi;
 end proc:
 
@@ -54,14 +51,11 @@ end proc:
 # Output:
 #   Indexes of quadrics which intersect and a component of a vector product of 
 #   their gradients in given direction have a common root.
-ComputeEventsBType2D := proc( Q, grid::boolean )
+ComputeEventsBType2D := proc( Q2D2, grid::boolean )
   local s:
   s := proc (i, j)
     local p, sol, univ, sys;
-    sys := {Q[i], Q[j]}:
-    #if not RootFinding:-HasRealRoots(sys) then
-      #return NULL;
-    #fi;
+    sys := {Q2D2[i], Q2D2[j]}:
     univ := EliminationResultant(sys, [ op( indets(sys) ) ]):
     if not type( univ, constant ) then
       sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
@@ -73,9 +67,9 @@ ComputeEventsBType2D := proc( Q, grid::boolean )
     return NULL:
    end proc:
    if grid then
-     return [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+     return [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q2D2)),i=1..nops(Q2D2))]:
    else
-     return [seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+     return [seq(seq(s(i,j),j=i+1..nops(Q2D2)),i=1..nops(Q2D2))]:
    fi;
 end proc:
 
@@ -86,12 +80,12 @@ end proc:
 #   Q     - set of conics
 # Output:
 #   Sorted set of real algebraic numbers
-ComputeEventsAlgebraicNumbers2D := proc( Q, grid::boolean )
+ComputeEventsAlgebraicNumbers2D := proc( Q2D2, grid::boolean )
   local events, rootsF, rf, poly:
   local numbers := Array([]):
   local factored, sqrFree:
 
-  events:= {op(ComputeEventsAType2D( Q )), op(ComputeEventsBType2D( Q ))}:
+  events:= {op(ComputeEventsAType2D( Q2D2, grid )), op(ComputeEventsBType2D( Q2D2, grid ))}:
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
@@ -115,9 +109,9 @@ ComputeEventsAlgebraicNumbers2D := proc( Q, grid::boolean )
   return numbers:
 end proc:
 
-ComputeEventsAType1D := proc( Q )
+ComputeEventsAType1D := proc( Q2D2 )
   local q, factored, sqrFree, rootsF, rf, numbers := Array([]);
-  for q in Q do
+  for q in Q2D2 do
     if RootFinding:-HasRealRoots(q) then
       factored := factors( q )[2,..,1]: 
       for sqrFree in factored do
@@ -141,8 +135,8 @@ ParallelComputeSamplePoints2D := proc ()
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
-  n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, me, aValue);
+  n := trunc((upperbound(cluster2D)-1)/numNodes);
+  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, aValue);
   Grid:-Barrier();
 end proc:
 
@@ -161,22 +155,22 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-ComputeSamplePoints2D := proc(Q::~set, cluster::list, first::integer,
+ComputeSamplePoints2D := proc(Q2D2::~set, cluster2D2::list, first::integer,
                              last::integer, id::integer, aValue)
   local i, j, x, midpoint, sys, samplePoints := [], fileID, vars, disjointEvent:=[]:
   local oneD, tmp;
-  if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
+  if first < 0 or last < 0 or last < first or upperbound(cluster2D2) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
 
     sys := {}: 
-    for x in cluster[i] do 
-      sys := sys union Q[x[2]]:
+    for x in cluster2D2[i] do 
+      sys := sys union Q2D2[x[2]]:
     end do:
 
     vars := indets(sys):
-    disjointEvent := DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
+    disjointEvent := DisjointRanges(cluster2D2[i][1][1],cluster2D2[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
    # intersection of a line with  conics
@@ -187,15 +181,7 @@ ComputeSamplePoints2D := proc(Q::~set, cluster::list, first::integer,
       next;
     fi:
     oneD := convert(oneD, list);
-    oneD := sort(oneD, 
-                         proc( l, r ) 
-                           if Compare( l, r ) = -1 then
-                             return true:
-                           else 
-                             return false:
-                           fi:
-                         end proc
-                ):
+    oneD := SortAlgebraicNumbers(oneD);
     tmp, oneD := selectremove(proc(x) return evalb(GetInterval(x)[2] < 0); end proc, oneD):
     if nops(tmp) <> 0 then
       oneD := [tmp[-1], op(oneD)];
@@ -228,33 +214,37 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints2D := proc (s::set, midpoint, nodes::integer) 
+LaunchOnGridComputeSamplePoints2D := proc (s::set, midpoint, nodes::integer, grid::boolean, id::integer) 
 
   local numbers, events, R, rootTmp: 
-  global Q := s, cluster, aValue := midpoint:
-  numbers := convert(ComputeEventsAlgebraicNumbers2D(Q), list);
-  print(nops(numbers));
+  global Q2D := s, cluster2D, aValue := midpoint:
+  if nodes > 1 then
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true), list);
+  else
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false), list);
+  fi;
   numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
-  print(nops(numbers));
-  cluster := ClusterEvents(numbers):
-  # Collect all unique quadrics
-  #events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
-  # assign all quadrics to the second event
-  cluster := [[[cluster[1][1][1], convert(Q,list)]], op(cluster[2..])]:
+  if upperbound(numbers) = 0 then
+    return NULL;
+  fi;
+  cluster2D := ClusterEvents(numbers):
+  cluster2D := [[[cluster2D[1][1][1], convert(Q2D, list)]], op(cluster2D[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
-  events := cluster[-1][1][1]:
+  events := cluster2D[-1][1][1]:
   rootTmp:= GetInterval(events)[2]+1/4;
   events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
   numer(rootTmp), rootTmp, rootTmp):
-  cluster := [op(cluster), [[events,cluster[-1][1][2]]]]:
-  # The first cluster is heavy so we compute it separately;
+  cluster2D := [op(cluster2D), [[events, cluster2D[-1][1][2]]]]:
+  # The first cluster2D is heavy so we compute it separately;
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
-  Grid:-Launch(ParallelComputeSamplePoints2D,
-               imports = ['Q, cluster, aValue'], numnodes=nodes, printer=proc(x) return NULL: end proc
-               ):
+  if grid then
+    Grid:-Launch(ParallelComputeSamplePoints2D,
+                 imports = ['Q2D, cluster2D, aValue'], numnodes=nodes, printer=proc(x) return NULL: end proc
+                 ):
+  else
+    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, aValue);
+  fi;
 end proc:
-
-
 

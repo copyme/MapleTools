@@ -146,6 +146,28 @@ SplitScan := proc(f, L::list)
 end proc:
 
 
+# Procedure: ClusterEvents
+#   Compute sublists which contains equal real algebraic numbers
+#
+# Comments:
+#   Used to split calculations over a grid of nodes for parallel computations.
+#
+# Parameters:
+#   nType            - list of real algebraic numbers and quadrics related eg numbers[i] =
+#   [RealAlgebraicNumber,[Quadrics involved]]
+#
+# Output:
+#   A list of sublists where each of them contains equal real algebraic numbers
+ClusterEvents := proc(numbers::list)
+  return SplitScan(
+            proc (x, y) 
+              if not type(x[1], RealAlgebraicNumber) or not type(y[1], RealAlgebraicNumber) then
+                error "Elements are not of type RealAlgebraicNumber" 
+              end if;
+            return evalb(Compare(x[1], y[1]) <> 0) 
+            end proc, numbers)
+end proc:
+
 # Procedure: Isort
 #   Sort elements and return their indices in original order after sorting
 #
@@ -166,4 +188,15 @@ end:
 ThreadsRemove := proc (s, x::list) 
   local ss; ss := proc (j) if s(x[j]) then return x[j] end if end proc; 
   return [Threads:-Seq(ss(i), i = 1 .. nops(x))] 
+end proc:
+
+SortAlgebraicNumbers := proc (numbers::list)
+  return sort( numbers, 
+        proc( l, r ) 
+        if Compare( l, r ) = -1 then
+          return true:
+        else 
+          return false:
+        fi;
+        end proc);
 end proc:
