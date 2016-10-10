@@ -443,7 +443,6 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
     end do:
-
     vars := indets(sys):
 
     disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);

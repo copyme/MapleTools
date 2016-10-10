@@ -112,6 +112,7 @@ end proc:
 ComputeEventsAType1D := proc( Q2D2 )
   local q, factored, sqrFree, rootsF, rf, numbers := Array([]);
   for q in Q2D2 do
+  print(q);
     if RootFinding:-HasRealRoots(q) then
       factored := factors( q )[2,..,1]: 
       for sqrFree in factored do
@@ -155,27 +156,28 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-ComputeSamplePoints2D := proc(Q2D2::~set, cluster2D2::list, first::integer,
+ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer,
                              last::integer, id::integer, aValue)
   local i, j, x, midpoint, sys, samplePoints := [], fileID, vars, disjointEvent:=[]:
   local oneD, tmp;
-  if first < 0 or last < 0 or last < first or upperbound(cluster2D2) <= last then 
+  if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
 
-    sys := {}: 
-    for x in cluster2D2[i] do 
-      sys := sys union Q2D2[x[2]]:
+    sys := []: 
+    for x in cluster2D[i] do 
+      sys := [op(sys), Q2D[x[2]]]:
     end do:
-
+    sys := ListTools:-Flatten(sys);
+    sys := ListTools:-MakeUnique(sys);
     vars := indets(sys):
-    disjointEvent := DisjointRanges(cluster2D2[i][1][1],cluster2D2[i+1][1][1]);
+    disjointEvent := DisjointRanges(cluster2D[i][1][1],cluster2D[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
    # intersection of a line with  conics
     # never call eval with sets!
-    sys := eval(convert(sys, list), vars[1] = midpoint):
+    sys := eval(sys, vars[1] = midpoint):
     oneD := ComputeEventsAType1D(sys);
 
     if oneD = NULL then
@@ -215,20 +217,23 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints2D := proc (s::set, midpoint, nodes::integer, grid::boolean, id::integer) 
+LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, grid::boolean, id::integer) 
 
-  local numbers, events, R, rootTmp: 
+  local numbers, events, R, rootTmp, n := nodes: 
   global Q2D := s, cluster2D, aValue := midpoint:
   if nodes > 1 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true), list);
   else
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false), list);
   fi;
-  numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := ThreadsRemove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
     return NULL;
   fi;
   cluster2D := ClusterEvents(numbers):
+  if upperbound(cluster2D) < nodes then
+    n := upperbound(cluster2D);
+  fi;
   cluster2D := [[[cluster2D[1][1][1], convert(Q2D, list)]], op(cluster2D[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   events := cluster2D[-1][1][1]:
@@ -242,7 +247,7 @@ LaunchOnGridComputeSamplePoints2D := proc (s::set, midpoint, nodes::integer, gri
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid then
     Grid:-Launch(ParallelComputeSamplePoints2D,
-                 imports = ['Q2D, cluster2D, aValue'], numnodes=nodes, printer=proc(x) return NULL: end proc
+                 imports = ['Q2D, cluster2D, aValue'], numnodes=n, printer=proc(x) return NULL: end proc
                  ):
   else
     ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, aValue);
