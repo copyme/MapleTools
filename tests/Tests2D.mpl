@@ -1,3 +1,4 @@
+read "../RealAlgebraicNumber.mpl":
 read "../RigidMotionsParameterSpaceCommon.mpl":
 read "../RigidMotionsParameterSpaceDecompositionRecursive.mpl":
 
