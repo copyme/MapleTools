@@ -18,5 +18,6 @@ quadrics[9] := [randpoly $ 20]([x,y], dense, degree=2, coeffs=rand(0..1));
 
 
 for i from 1 to 9 do
+    print(i);
     LaunchOnGridComputeSamplePoints2D(quadrics[i], 0, 1, false, i);
 end do;
