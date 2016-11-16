@@ -107,11 +107,17 @@ end proc:
 ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
   local list := [], s;
   s:=proc(i::integer)
+    local rf, rootsF;
     local numbers := [], sol:
-     sol := IsAsymptotic2D(Q2D2[i], b):
+     sol := IsAsymptotic2D(Q2D2[i], indets(Q2D2[i])[-1]):
      if sol <> NULL and nops(sol) <> 0 then
-      numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
-      numer(rhs(sol)), rhs(sol), rhs(sol)), [i]]]:
+       rootsF := RootFinding:-Isolate(sol, op(indets(sol)), output='interval');
+       for rf in rootsF do
+         numbers:=[op(numbers), [Object(RealAlgebraicNumber, sol, op(rf)[2][1],
+         op(rf)[2][2]), [i]]]: 
+       od:
+      numbers:=[op(numbers), [Object(RealAlgebraicNumber, sol * denom(sol) -
+      numer(sol), sol, sol), [i]]]:
      fi:
     return numbers;
   end proc:
