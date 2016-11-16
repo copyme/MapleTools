@@ -1,3 +1,4 @@
+read "../RigidMotionsParameterSpaceCommon.mpl":
 read "../RigidMotionsParameterSpaceDecompositionRecursive.mpl":
 
 # Table of examples to test
