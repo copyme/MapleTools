@@ -89,14 +89,8 @@ end proc:
 # TODO:
 #   - Allow user to chose a direction. 
 #   - if there is no intersection between quadrics then skip it.
-IsAsymptotic2D := proc( p::polynom  )
-  local J := PolynomialIdeals:-`<,>`(p), vars := indets(p);
-  local Pb, Cb, sols, univ:
-
-  Pb := PolynomialIdeals:-EliminationIdeal(J,vars[1..2]):
-  Pb := PolynomialIdeals:-IdealInfo:-Generators(Pb)[1]:
-  Cb := lcoeff(Pb, vars[2]):
-  return Cb;
+IsAsymptotic2D := proc( p::polynom, var  )
+  return lcoeff(p, var);
 end proc:
 
 
@@ -119,7 +113,6 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
       numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
       numer(rhs(sol)), rhs(sol), rhs(sol)), [i]]]:
      fi:
-    od:
     return numbers;
   end proc:
   list:= [Grid:-Seq(s(i),i=1..nops(Q))];
