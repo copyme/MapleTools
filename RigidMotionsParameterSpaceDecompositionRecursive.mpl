@@ -119,7 +119,6 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
      fi:
     return numbers;
   end proc:
-  return [seq(s(i),i=1..nops(Q2D2))];
   list:=select(proc(x) return evalb(x<>[]) end, [seq(s(i),i=1..nops(Q2D2))]);
   return ListTools:-Flatten(list, 1);
 end:
