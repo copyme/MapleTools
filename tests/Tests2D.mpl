@@ -1,7 +1,6 @@
-#restart; #because bug otherwise
-read "../RealAlgebraicNumber.mpl":
-read "../RigidMotionsParameterSpaceCommon.mpl":
-read "../RigidMotionsParameterSpaceDecompositionRecursive.mpl":
+read "../RealAlgebraicNumber.mpl";
+read "../RigidMotionsParameterSpaceCommon.mpl";
+read "../RigidMotionsParameterSpaceDecompositionRecursive.mpl";
 
 # Table of examples to test
 quadrics := table();
@@ -25,7 +24,7 @@ for i from 1 to 10 do
     print(i);
     try
         LaunchOnGridComputeSamplePoints2D(quadrics[i], 0, 1, false, i);
-    catch "Only system":
+    catch "Only system in two variables":
         print(lasterror);
     catch:
         print("Error", lastexception);
