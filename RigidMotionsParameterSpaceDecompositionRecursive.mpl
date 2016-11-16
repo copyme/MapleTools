@@ -164,7 +164,6 @@ end proc:
 ComputeEventsAType1D := proc( Q2D2 )
   local q, factored, sqrFree, rootsF, rf, numbers := Array([]);
   for q in Q2D2 do
-  print(q);
     if RootFinding:-HasRealRoots(q) then
       factored := factors( q )[2,..,1]:
       for sqrFree in factored do
