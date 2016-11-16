@@ -13,6 +13,6 @@ quadrics[8] := [x[1]^2+x[2]^2-1];
 
 # Fix the seed for reproductible random generation
 RandomTools:-MersenneTwister:-SetState(state=123456789);
-quadrics[9] := [randpoly $ 20]([x,y], dense, degree=2, rand(0..1));
+quadrics[9] := [randpoly $ 20]([x,y], dense, degree=2, coeffs=rand(0..1));
 
 
