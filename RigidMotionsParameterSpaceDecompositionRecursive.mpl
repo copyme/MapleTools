@@ -116,8 +116,6 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
          numbers:=[op(numbers), [Object(RealAlgebraicNumber, sol, op(rf)[2][1],
          op(rf)[2][2]), [i]]]: 
        od:
-      numbers:=[op(numbers), [Object(RealAlgebraicNumber, sol * denom(sol) -
-      numer(sol), sol, sol), [i]]]:
      fi:
     return numbers;
   end proc:
