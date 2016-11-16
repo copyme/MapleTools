@@ -147,8 +147,7 @@ ComputeEventsAlgebraicNumbers2D := proc( Q2D2, grid::boolean )
       od:
     od:
   od:
-
-  numbers := [op(numbers), op(ComputeAsymptoticAAEvents2DGrid(Q2D2))];
+  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2)]));
  
   numbers := sort(numbers, 
                            proc( l, r ) 
