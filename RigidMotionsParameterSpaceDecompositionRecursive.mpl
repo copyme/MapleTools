@@ -119,7 +119,7 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
      fi:
     return numbers;
   end proc:
-  return [Grid:-Seq(s(i),i=1..nops(Q))];
+  return [Grid:-Seq(s(i),i=1..nops(Q2D2))];
 end:
 
 
