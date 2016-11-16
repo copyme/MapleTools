@@ -108,15 +108,14 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
   local list := [], s;
   s:=proc(i::integer)
     local numbers := [], sol:
-     sol := IsAsymptotic2D(Q2D2[i]):
+     sol := IsAsymptotic2D(Q2D2[i] b):
      if sol <> NULL and nops(sol) <> 0 then
       numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
       numer(rhs(sol)), rhs(sol), rhs(sol)), [i]]]:
      fi:
     return numbers;
   end proc:
-  list:= [Grid:-Seq(s(i),i=1..nops(Q))];
-  return ListTools:-Flatten(list, 1);
+  return [Grid:-Seq(s(i),i=1..nops(Q))];
 end:
 
 
@@ -132,7 +131,8 @@ ComputeEventsAlgebraicNumbers2D := proc( Q2D2, grid::boolean )
   local numbers := Array([]):
   local factored, sqrFree:
 
-  events:= {op(ComputeEventsAType2D( Q2D2, grid )), op(ComputeEventsBType2D( Q2D2, grid ))}:
+  events:= {op(ComputeEventsAType2D( Q2D2, grid )), op(ComputeEventsBType2D( Q2D2, grid )),
+  op(ComputeAsymptoticAAEvents2DGrid(Q2D2))}:
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
