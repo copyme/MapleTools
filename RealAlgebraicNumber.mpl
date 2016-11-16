@@ -275,7 +275,7 @@ module RealAlgebraicNumber()
     local ll := a, rr := b, i;
 
     (* No intersection.*)
-    if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+    if evalb( ll:-b < rr:-a ) or evalb( ll:-a > rr:-b ) then
       return [a,b];
     fi:
 
@@ -284,7 +284,7 @@ module RealAlgebraicNumber()
       rr := BisectRange( rr ):
 
       (* No intersection.*)
-      if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+      if evalb( ll:-b < rr:-a ) or evalb( ll:-a > rr:-b ) then
         return [ll,rr];
       fi:
     od:
