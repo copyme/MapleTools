@@ -73,6 +73,60 @@ ComputeEventsBType2D := proc( Q2D2, grid::boolean )
    fi;
 end proc:
 
+# Procedure: IsAsymptotic2D
+#   Checks if intersection of two quadrics has an asymptotic critical value. For this moment a
+#   direction is fixed to a.
+#
+# Parameters:
+#   p          - a quadric in three variables
+#
+# Output:
+#   List of solution for which intersection of p and q has an asymptotic intersection
+# Comment:
+#   - Since Groebner package seems to have memory leak I should rather replace 
+#     PolynomialIdeals:-EliminationIdeal by resultant elimination similarly to what I did with
+#     univariate polynomials.
+# TODO:
+#   - Allow user to chose a direction. 
+#   - if there is no intersection between quadrics then skip it.
+IsAsymptotic2D := proc( p::polynom  )
+  local J := PolynomialIdeals:-`<,>`(p), vars := indets(p);
+  local Pb, Cb, sols, univ:
+
+  Pb := PolynomialIdeals:-EliminationIdeal(J,vars[1..2]):
+  Pb := PolynomialIdeals:-IdealInfo:-Generators(Pb)[1]:
+  Cb := lcoeff(Pb, vars[2]):
+  return Cb;
+end proc:
+
+
+# Procedure: ComputeAsymptoticAAEvents2D
+#   Compute real algebraic numbers which corresponds to 
+#   asymptotic cases given by one quadrics.
+#
+# Parameters:
+#   Q          - a set of quadrics
+#
+# Output:
+#   A list of real algebraic numbers and indexes of quadrics
+#   which corresponds to them.
+ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
+  local list := [], s;
+  s:=proc(i::integer)
+    local numbers := [], sol:
+     sol := IsAsymptotic2D(Q2D2[i]):
+     if sol <> NULL and nops(sol) <> 0 then
+      numbers:=[op(numbers), [Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
+      numer(rhs(sol)), rhs(sol), rhs(sol)), [i]]]:
+     fi:
+    od:
+    return numbers;
+  end proc:
+  list:= [Grid:-Seq(s(i),i=1..nops(Q))];
+  return ListTools:-Flatten(list, 1);
+end:
+
+
 # Procedure: ComputeEventsAlgebraicNumbers2D
 #   Compute and sort events as algebraic numbers 
 #
@@ -114,7 +168,7 @@ ComputeEventsAType1D := proc( Q2D2 )
   for q in Q2D2 do
   print(q);
     if RootFinding:-HasRealRoots(q) then
-      factored := factors( q )[2,..,1]: 
+      factored := factors( q )[2,..,1]:
       for sqrFree in factored do
         rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
         for rf in rootsF do
