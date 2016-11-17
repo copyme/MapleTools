@@ -17,12 +17,13 @@ ComputeEventsAType2D := proc( Q2D2, grid::boolean )
    s := proc(i::integer, vars::list)
     local sys, univ, sol:
     local q := Q2D2[i];
-    if nops(vars) = 2 then
-      sys := { q, diff( q, vars[2] ) };
+    if nops(vars) <> 2 then
+      error "Only systems in two variables are supported.";
     fi:
-    univ := EliminationResultant(sys, [ op( indets(sys ) ) ]):
+    sys := { q, diff( q, vars[2] ) };
+    univ := EliminationResultant(sys, vars):
     if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
+      sol := RootFinding:-Isolate( univ, [vars[1]]):
       sol := nops(select(e -> rhs(e) >= 0, sol)):
       if sol > 0 then
         return [univ, [i]]:
@@ -103,11 +104,12 @@ end proc:
 #   A list of real algebraic numbers and indexes of quadrics
 #   which corresponds to them.
 ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
-  local list := [], s;
-  s:=proc(i::integer)
+  local variables := [ op( indets( Q2D2 ) ) ];
+  local out := [], s;
+  s:=proc(i::integer, vars::list)
     local rf, rootsF;
     local numbers := [], sol:
-     sol := IsAsymptotic2D(Q2D2[i], indets(Q2D2[i])[-1]):
+     sol := IsAsymptotic2D(Q2D2[i], vars[-1]):
      if sol <> NULL and not type(sol, constant) then
        rootsF := RootFinding:-Isolate(sol, op(indets(sol)), output='interval');
        for rf in rootsF do
@@ -117,8 +119,8 @@ ComputeAsymptoticAAEvents2DGrid:=proc(Q2D2)
      fi:
     return numbers;
   end proc:
-  list:=select(proc(x) return evalb(x<>[]) end, [seq(s(i),i=1..nops(Q2D2))]);
-  return ListTools:-Flatten(list, 1);
+  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, variables),i=1..nops(Q2D2))]);
+  return ListTools:-Flatten(out, 1);
 end:
 
 
@@ -230,6 +232,7 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer,
    # intersection of a line with  conics
     # never call eval with sets!
     sys := eval(sys, vars[1] = midpoint):
+    sys := ListTools:-MakeUnique([op(sys),vars[-1]]);
     oneD := ComputeEventsAType1D(sys);
 
     if oneD = NULL then
@@ -272,7 +275,7 @@ end proc:
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, grid::boolean, id::integer) 
 
   local numbers, events, R, rootTmp, n := nodes: 
-  global Q2D := s, cluster2D, aValue := midpoint:
+  global Q2D := ListTools:-MakeUnique([indets(s)[1],op(s)]), cluster2D, aValue := midpoint:
   if nodes > 1 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true), list);
   else
