@@ -277,7 +277,7 @@ LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, gr
   else
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false), list);
   fi;
-  numbers := ThreadsRemove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  #numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
     return NULL;
   fi;
@@ -285,7 +285,12 @@ LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, gr
   if upperbound(cluster2D) < nodes then
     n := upperbound(cluster2D);
   fi;
-  cluster2D := [[[cluster2D[1][1][1], convert(Q2D, list)]], op(cluster2D[2..])]:
+
+  # Collect all unique quadrics
+  events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster2D[i][..,2]), i =1..nops(cluster2D))])):
+  # assign all quadrics to the second event
+  cluster2D := [[[cluster2D[1][1][1], events]], op(cluster2D[2..])]:
+
   # add the last slice twice but shifted to calculate correctly last quadrics
   events := cluster2D[-1][1][1]:
   rootTmp:= GetInterval(events)[2]+1/4;

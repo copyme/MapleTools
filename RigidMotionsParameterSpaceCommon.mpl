@@ -184,12 +184,6 @@ Isort:=proc(L)
   return a, [seq(L[i],i=a)]; 
 end:
 
-
-ThreadsRemove := proc (s, x::list) 
-  local ss; ss := proc (j) if s(x[j]) then return x[j] end if end proc; 
-  return [Threads:-Seq(ss(i), i = 1 .. nops(x))] 
-end proc:
-
 SortAlgebraicNumbers := proc (numbers::list)
   return sort( numbers, 
         proc( l, r ) 
