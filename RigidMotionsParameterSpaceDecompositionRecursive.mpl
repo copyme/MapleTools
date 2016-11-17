@@ -277,7 +277,7 @@ LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, gr
   else
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false), list);
   fi;
-  #numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
     return NULL;
   fi;
