@@ -72,8 +72,16 @@ EliminationResultant := proc( S::~set, vars::~list )
   if not andmap(type, S, `polynom`) then
     error "Wrong type of elements. Expected argument is a set of polynomials!"; 
   fi;
-  if nops(vars) <= 1 then
+  if nops(vars) < 1 then
     error "Wrong number of indeterminates. It should be at least 2.";
+  fi;
+  if nops(vars) = 1 then
+    permm := combinat:-permute(res, 2);
+    res := [];
+    for p in permm do
+      res := [op(res), OneVariableElimination(p[1], p[2], vars[1])]:
+    od;
+    return foldl( gcd, op(res) ):
   fi;
 
    for var in vars[2..] do

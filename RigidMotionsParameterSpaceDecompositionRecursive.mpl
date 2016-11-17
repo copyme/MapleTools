@@ -12,15 +12,13 @@
 # Comment:
 #  - only the first direction is supported since EliminationResultant is used
 ComputeEventsAType2D := proc( Q2D2, grid::boolean )
+  local variables := [ op( indets( Q2D2 ) ) ];
   local s:
-   s := proc(i::integer)
-    local sys, univ, sol, vars:
+   s := proc(i::integer, vars::list)
+    local sys, univ, sol:
     local q := Q2D2[i];
-    vars := [ op( indets( q ) ) ];
     if nops(vars) = 2 then
       sys := { q, diff( q, vars[2] ) };
-    else
-      error "Only system in two variables is supported! (%1)", q;
     fi:
     univ := EliminationResultant(sys, [ op( indets(sys ) ) ]):
     if not type( univ, constant ) then
@@ -34,9 +32,9 @@ ComputeEventsAType2D := proc( Q2D2, grid::boolean )
     end if:
   end proc:
   if grid then
-    return [Grid:-Seq(s(i),i=1..nops(Q2D2))]:
+    return [Grid:-Seq(s(i, variables),i=1..nops(Q2D2))]:
   else 
-    return [seq(s(i),i=1..nops(Q2D2))]:
+    return [seq(s(i, variables),i=1..nops(Q2D2))]:
   fi;
 end proc:
 
@@ -148,8 +146,10 @@ ComputeEventsAlgebraicNumbers2D := proc( Q2D2, grid::boolean )
     od:
   od:
   ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2)]));
- 
-  numbers := sort(numbers, 
+  
+  # In maple 2015.2 there is a bug which causes: stack limit reached
+  if upperbound(numbers) <> 0 then
+    numbers := sort(numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
                                return true:
@@ -158,6 +158,7 @@ ComputeEventsAlgebraicNumbers2D := proc( Q2D2, grid::boolean )
                              fi:
                            end proc
                   ):
+  fi:
   return numbers:
 end proc:
 

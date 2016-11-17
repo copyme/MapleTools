@@ -304,6 +304,11 @@ module RealAlgebraicNumber()
     local i::integer, a::rational, b::rational, F1::polynom, F2::polynom, G::polynom;
     local ll::RealAlgebraicNumber, rr::RealAlgebraicNumber;
 
+    if indets(l:-poly) <> indets(r:-poly) then
+      error "Univariate polynomials have different variables: %1 and %2.", indets(l:-poly),
+      indets(r:-poly);
+    fi;
+
     if evalb( l:-poly = r:-poly and l:-a = r:-a and l:-b = r:-b ) then
         return 0;
     end if; 
