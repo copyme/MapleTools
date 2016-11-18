@@ -232,7 +232,6 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer,
    # intersection of a line with  conics
     # never call eval with sets!
     sys := eval(sys, vars[1] = midpoint):
-    sys := ListTools:-MakeUnique([op(sys),vars[-1]]);
     oneD := ComputeEventsAType1D(sys);
 
     if oneD = NULL then
@@ -240,6 +239,7 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer,
     fi:
     oneD := convert(oneD, list);
     oneD := SortAlgebraicNumbers(oneD);
+    oneD := ListTools:-MakeUnique(oneD,1,proc(a,b) evalb(Compare(a,b) = 0) end proc);
     tmp, oneD := selectremove(proc(x) return evalb(GetInterval(x)[2] < 0); end proc, oneD):
     if nops(tmp) <> 0 then
       oneD := [tmp[-1], op(oneD)];
@@ -275,7 +275,7 @@ end proc:
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint, nodes::integer, grid::boolean, id::integer) 
 
   local numbers, events, R, rootTmp, n := nodes: 
-  global Q2D := ListTools:-MakeUnique([indets(s)[1],op(s)]), cluster2D, aValue := midpoint:
+  global Q2D := ListTools:-MakeUnique([op(indets(s)),op(s)]), cluster2D, aValue := midpoint:
   if nodes > 1 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true), list);
   else
