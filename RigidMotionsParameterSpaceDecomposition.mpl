@@ -56,64 +56,6 @@
          #ParallelCalculateNMM, ComputeSamplePoint, ComputeAsymptoticABEventsGrid,
          #ComputeAsymptoticAAEventsGrid:
 
-# Procedure: CayleyTransform
-#   Compute Cayley transform for a 3x3 skew-symmetric matrix.
-#
-# Parameters:
-#   vars   - list of variables
-#
-# Output:
-#   3x3 (or 2x2) rotation matrix
-# 
-# Links:
-#   https://en.wikipedia.org/wiki/Cayley_transform
-CayleyTransform := proc( vars::list )
-  local A::Matrix, QLSide::Matrix, QRSide::Matrix, dim:
-  dim := nops(vars);
-  if dim = 1 then
-   A := Matrix( [ [ 0, vars[1] ], [ -vars[1], 0 ] ] ):
-  elif dim = 2 then
-   A := Matrix( [ [ 0, vars[2]/vars[1] ], [ -vars[2]/vars[1], 0 ] ] );
-  elif dim = 3 then
-   A := Matrix( [ [ 0, vars[1], vars[2] ], [ -vars[1], 0, vars[3] ], 
-                                      [ -vars[2], -vars[3], 0 ] ] ):
-  else
-   error "Unsupported dimension! Check 1, 2 or 3":
-  end if:
-  dim := upperbound(A)[1];
-  QLSide := Matrix( dim, shape = identity ) - A:
-  QRSide := LinearAlgebra:-MatrixInverse( Matrix( dim, shape = identity ) + A ):
-  return simplify( QLSide . QRSide ):
-end proc:
-
-
-# Procedure: GetNeighborhood
-#   Compute a neighborhood
-#
-# Parameters:
-#   nType      - size of neighborhood i.e. N1, N2, N3, N1_2D. 
-#
-# Output:
-#   List of vectors
-GetNeighborhood := proc( nType::string )
-  local n6 := [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1], [0, 0, 0]]:
-  local n18 := [[1, 1, 0], [1, 0, 1], [0, 1, 1], [-1, -1, 0], [-1, 0, -1], [0, -1, -1], 
-                [-1, 1, 0], [-1, 0, 1], [1, -1, 0], [1, 0, -1], [0, -1, 1], [0, 1, -1]]:
-  local n26 := [[1, 1, 1], [-1, 1, 1], [1, -1, 1], [1, 1, -1], [-1, -1, 1], [-1, 1, -1], 
-                [-1, -1, -1], [1, -1, -1]]:
-
-  if nType = "N1" then
-    return n6:
-  elif nType = "N2" then
-    return( [ op( n6 ), op( n18 ) ] ):
-  elif nType = "N3" then
-    return( [ op( n6 ), op( n18 ), op(n26) ] ):
-  else 
-    error "Not supported type. Try N1, N2, N3.":
-  end if:
-end proc:
-
-
 # Procedure: GetQuadric
 #   Compute a quadric.
 #
@@ -136,104 +78,6 @@ GetQuadric := proc( R::~Matrix,
   else
     error "Wrong dimension: dim must be in [1,3].";
   end if:
-end proc:
-
-
-# Procedure: EliminationResultant
-#   Computes univariate polynomial.
-#
-# Parameters:
-#   S          - a set of polynomials in three variables
-#   vars       - variables to be eliminated
-#
-# Output:
-#   Univariate polynomial obtained from S in the first variable.
-EliminationResultant := proc( S::~set, vars::~list )
-  option cache:
-  local r1, r2, r3, rr1, rr2, rr3;
-  if nops(S) <> 3 then
-    error "Wrong size of the input set. Expected size is 3.";
-  fi;
-  if not type(S[1], polynom) or not type(S[2], polynom) or not type(S[3], polynom) then
-    error "Wrong type of elements. Expected argument is a set of polynomials!"; 
-  fi;
-  if nops(vars) <> 3 then
-    error "Wrong number of indeterminates. It should be 3.";
-  fi;
-  r1 := OneVariableElimination( S[1], S[2], vars[3] ):
-  r2 := OneVariableElimination( S[1], S[3], vars[3] ):
-  r3 := OneVariableElimination( S[2], S[3], vars[3] ):
-  rr1 := OneVariableElimination( r1, r2, vars[2] ):
-  rr2 := OneVariableElimination( r1, r3, vars[2] ):
-  rr3 := OneVariableElimination( r2, r3, vars[2] ):
-  return foldl( gcd, rr1, rr2, rr3 ):
-end proc:
-
-# Procedure: RemoveExponant
-#    Removes exponants in an expression
-#
-# Parameters:
-#    r - expression, the expression to simplify
-#
-# Output:
-#    An arithmetic expression that has the same squarefree part as r
-RemoveExponants := proc(r)
-        local remove_exponant, sqrr, result;
-        remove_exponant := e -> if type(e,`^`) then op(1,e) else e end if;
-        result := remove_exponant(r);
-        if type(r,`*`) then
-            result := map(remove_exponant, result);
-        end if;
-        return result;
-end proc;
-
-OneVariableElimination := proc( p, q, v)
-    local r;
-    if degree(p,v)>0 or degree(q,v)>0 then
-        r := resultant(p, q, v); 
-        r := RemoveExponants(r);
-        return r;
-    elif  nops(indets({p,q}))=1 then
-        return gcd(p, q);
-    else
-        return p;
-    end if;
-end proc;
-
-# Procedure: EliminationResultant2
-#   Computes univariate polynomial.
-#
-# Parameters:
-#   S          - a set of polynomials of degree 2 in three variables
-#
-# Output:
-#   Univariate polynomial obtained from S in the first variable, with
-#   formula from Chapter 3, p. 89 of "Using Algebraic Geometry" from Cox,
-#   Little, O'Shea.
-EliminationResultant2 := proc( S::~set )
-  #option cache;
-  local vars, monomials, L, J, J1, J2, dJ, result;
-  vars := indets(S);
-  if nops(S) <> 3 then
-    error "Wrong size of the input set. Expected size is 3.";
-  fi;
-  if not type(S[1], polynom) or not type(S[2], polynom) or not type(S[3], polynom) then
-    error "Wrong type of elements. Expected argument is a set of polynomials!"; 
-  fi;
-  if nops(vars) <> 3 then
-    error "Wrong number of indeterminates. It should be 3.";
-  fi;
-  vars := [op(vars)][2..3];
-  monomials := map2(map,`-`,[op(combinat:-composition(5,3))], 1)[..,2..3];
-  L := map(p->[diff(p,vars[1]), diff(p,vars[2]),p], [op(S)]);
-  J := LinearAlgebra:-Determinant(L);
-  J1 := diff(J,vars[1]);
-  J2 := diff(J,vars[2]);
-  dJ := [J1, J2, degree(J,vars)*J-vars[1]*J1 - vars[2]*J2];
-  L := map2(map2,(p,d)-> coeftayl(p, vars=[0,0], d),
-                 [op(S),op(dJ)], monomials);
-  result := -LinearAlgebra:-Determinant(L)/64;
-  return result;
 end proc:
 
 # Procedure: IsMonotonic
@@ -403,7 +247,7 @@ end proc:
 # Parameters:
 #   dir        - a direction of a gradient product it should
 #                be the same as director of sweep 
-#   Q          - a set of quadrics or conics
+#   Q          - a set of conics
 #
 # Output:
 #   Indexes of quadrics which intersect and a component of a vector product of 
@@ -535,7 +379,7 @@ end proc:
 # Output:
 #   Sorted set of real algebraic numbers
 ComputeEventsAlgebraicNumbers := proc( Q::~set )
-  local events, rootsF, rf, poly, i, j, s, sol:
+  local events, rootsF, rf, poly:
   local numbers := Array([]):
   local numAsym;
   local factored, sqrFree:
@@ -570,56 +414,6 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set )
   return numbers:
 end proc:
 
-
-# Procedure: SplitScan
-#   Can split a list into sublists of the same elements. Code written by Carl Love.
-#   See http://www.mapleprimes.com/questions/205030-Split-The-List-Into-Sublists-With-Identical
-#
-# Comments:
-#   The input list has to be sorted.
-#
-# Parameters:
-#   f            - a procedure used to check if two elements are different eg `<>`
-#   L            - a list to split
-#
-# Output:
-#   Returns a list of sublists where each of them contains elements which are same.
-# Call example:
-#   SplitList(`<>`,[1, 1, 2, 3, 3, 4, 9, 9, 0, 11]);
-SplitScan := proc(f, L::list) 
-  local R, k, j, last; R := Vector(); k := 0; last := 1; 
-  for j from 2 to nops(L) do 
-    if f(L[j-1], L[j], _rest) then 
-      k := k+1; R(k) := L[last .. j-1]; 
-      last := j 
-    end if 
-    end do;
-  [seq(k, k = R), L[last .. ()]]
-end proc:
-
-
-# Procedure: ClusterEvents
-#   Compute sublists which contains equal real algebraic numbers
-#
-# Comments:
-#   Used to split calculations over a grid of nodes for parallel computations.
-#
-# Parameters:
-#   nType            - list of real algebraic numbers and quadrics related eg numbers[i] =
-#   [RealAlgebraicNumber,[Quadrics involved]]
-#
-# Output:
-#   A list of sublists where each of them contains equal real algebraic numbers
-ClusterEvents := proc(numbers::list)
-  return SplitScan(
-            proc (x, y) 
-              if not type(x[1], RealAlgebraicNumber) or not type(y[1], RealAlgebraicNumber) then
-                error "Elements are not of type RealAlgebraicNumber" 
-              end if;
-            return evalb(Compare(x[1], y[1]) <> 0) 
-            end proc, numbers)
-end proc:
-
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions
 #
@@ -635,12 +429,10 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-# TODO:
-#  Split and allow recursive calls
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
-                             last::integer, id::integer, skipped::list:=[])
+                             last::integer, id::integer, grid::boolean, skipped::list:=[])
   local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
-  if first < 0 or last < 0 or last < first or upperbound(cluster) < last then 
+  if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
@@ -651,27 +443,19 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
     end do:
-
     vars := indets(sys):
 
     disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
-    
-    sys := Threads:-Map(proc (x) return eval(x, vars[1] = midpoint) <> 0 end proc, sys):
-    # Some how negative sample points are still generated.
-    sys := [op(sys), 0 < vars[2], 0 < vars[3]]:
-    # this has to be replaced by recursive approach
-    samplePoints := RootFinding[Parametric]:-CellDecomposition(sys, [], [op(vars[2..3])],
-                                      'output'='witnesspoints'):-SamplePoints:
-    
-    samplePoints := remove(proc(x) if rhs(x[1]) < 0 or rhs(x[2]) < 0 then return true: else return
-                                                                     false: fi: end, samplePoints):
+    # never call eval with sets!!
+    sys := eval(convert(sys, list), vars[1] = midpoint);
 
-    fileID := fopen(sprintf("sam_%d.csv", id), APPEND, TEXT):
-    writedata(fileID, Threads:-Map(proc (x) return [midpoint, 
-               rhs(x[1]), rhs(x[2])] end proc, samplePoints),
-              string, proc (f, x) fprintf(f, %a, x) end proc):
-    fclose(fileID): 
+   if grid then 
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id);
+   else
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id);
+   fi;
+    
   end do:
   return NULL:
 end proc:
@@ -693,7 +477,7 @@ CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer)
    card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
    if card >= treshold then
       skipped := [op(skipped),i];
-     ComputeSamplePoints(Q,cluster,i,i, -1);
+     ComputeSamplePoints(Q, cluster, i, i, 0, true);
    fi
   od;
   return skipped;
@@ -710,7 +494,7 @@ ParallelComputeSamplePoints := proc ()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, false, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -725,17 +509,17 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
 LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, treshold::integer, nodes:=20) 
-  local numbers, events, R: 
-  global Q, cluster,rootTmp, skipped:
+  local numbers, events, R, rootTmp: 
+  global Q, cluster, skipped:
   kernelopts(printbytes=false):
   Grid:-Setup("local",numnodes=nodes):
   R := CayleyTransform(vars):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange):
-  numbers := CodeTools:-Usage(ComputeEventsAlgebraicNumbers(Q)):
-  numbers := convert(numbers,list):
-  numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := ComputeEventsAlgebraicNumbers(Q):
+  numbers := convert(numbers, list):
+  numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   cluster := ClusterEvents(numbers):
   # Collect all unique quadrics
   events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
@@ -755,221 +539,6 @@ LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list
   Grid:-Launch(ParallelComputeSamplePoints,
                imports = ['Q, cluster, skipped'], numnodes=nodes, printer=proc(x) return NULL: end proc
               ):
-end proc:
-
-
-# Procedure: Isort
-#   Sort elements and return their indices in original order after sorting
-#
-# Author:
-#   Alec Mihailovs - http://www.mapleprimes.com/posts/43507-Sorting-With-Indices#comment80473  
-# Parameters:
-#   L            - a container to be sorted. 
-#
-# Output:
-#   indices of original order after sorting, sorted collection.
-Isort:=proc(L)
-  local a;
-  a := sort([$1..nops(L)],(i,j)->L[i]<=L[j]); 
-  return a, [seq(L[i],i=a)]; 
-end:
-
-
-# Procedure: GetOrderedCriticalPlanes
-#   Compute critical planes in the remainder range
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   samplePoints     - values of a, b, c (see CayleyTransform)
-#
-# Output:
-#   Returns signature of order and ordered critical planes 
-#   in the remainder range for X, Y and Z directions.
-GetOrderedCriticalPlanes := proc(vars::list, samplePoints::list, planes::list) 
-  local params;
-  local sdPlanes := [[],[],[]];
-  local xSig, ySig, zSig, Signature;
-  
-  if nops(vars) <> 3 then
-    error "Only 3D arrangement is supported.";
-  fi;
-  
-  sdPlanes[1] := eval(sdPlanes[1], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  sdPlanes[2] := eval(sdPlanes[2], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  sdPlanes[3] := eval(sdPlanes[3], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  
-  xSig, sdPlanes[1] := Isort(sdPlanes[1]); 
-  ySig, sdPlanes[2] := Isort(sdPlanes[2]); 
-  zSig, sdPlanes[3] := Isort(sdPlanes[3]);
-  
-  # remove all out of the range regions 
-  sdPlanes[1] := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[1]));
-  sdPlanes[2] := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[2]));
-  sdPlanes[3] := remove(proc(x) return evalb(x <= -1/2) end proc,
-  remove(proc(x) return evalb(x >= 1/2) end proc, sdPlanes[3]));
-  # add region boarders
-  sdPlanes[1] := [-1/2,op(sdPlanes[1]),1/2];
-  sdPlanes[2] := [-1/2,op(sdPlanes[2]),1/2];
-  sdPlanes[3] := [-1/2,op(sdPlanes[3]),1/2]; 
-
-  Signature := cat(op(map(proc (x) sprintf("%d", x) end proc, [op(xSig), op(ySig), op(zSig)])));
-  return Signature, sdPlanes;
-end proc:
-
-
-# Procedure: RecoverTranslationSamplePoints
-#   Compute midpoints of each frame in the remainder range
-#
-# Parameters:
-#   xPlanes            - ordered X critical planes in the remainder range
-#   yPlanes            - ordered Y critical planes in the remainder range
-#   zPlanes            - ordered Z critical planes in the remainder range
-#
-# Output:
-#   Returns centers of frames in the remainder range
-RecoverTranslationSamplePoints := proc(planes::list) 
-  local i, j, k; 
-  local samples := []; 
-  for i to upperbound(planes[1]) - 1 do
-    for j to upperbound(planes[2]) - 1 do 
-      for k to upperbound(planes[3]) - 1 do 
-        samples := [op(samples), [(1/2)*add(planes[1][i .. i+1]), 
-                    (1/2)*add(planes[2][j.. j+1]), (1/2)*add(planes[3][k .. k+1])]];
-      end do;
-    end do;
-  end do; 
-  return samples; 
-end proc:
-
-
-# Procedure: Get3DNMM
-#   Compute neighbourhood motion maps
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   samplesTrans     - midpoints of frames in the remainder range
-#   sampleRot        - values of a, b, c (see CayleyTransform)
-#
-# Output:
-#   Returns 3D neighbourhood motion maps for given a,b,c and corresponding translations.
-Get3DNMM := proc(nType::string, samplesTrans::list, sampleRot::list, NMMContainer::uneval) 
-  local x;
-  local R := eval(CayleyTransform({a,b,c}), {a = sampleRot[1], b = sampleRot[2], c = sampleRot[3]});
-  local n := GetNeighborhood(nType);
-  local NMM := eval(NMMContainer); 
-  NMMContainer := NMM union {seq(map(proc (y) map(round, convert(R.Vector(3, y)+Vector(3,x), list))
-  end proc, n),x in samplesTrans)};
-end proc;
-
-CriticalPlanes := proc(vars::list, nType::string, kRange::list)
-  local R := CayleyTransform(vars);
-  # we remove 7th element -- [0, 0, 0]
-  local n := subsop(7=NULL, GetNeighborhood(nType)); 
-  local T := combinat:-cartprod([n, kRange]);
-  local planes := [[],[],[]]; 
-  local params;
-  while not T[finished] do 
-    params := T[nextvalue](); 
-    planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
-    planes[2] := [op(planes[2]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
-    planes[3] := [op(planes[3]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
-  end do;
-
- return planes;
-
-end proc;
-
-
-# Procedure: CalculateNMM
-#   Reads data from hard drive and generates NMM
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
-#   id               - an id of a file which contains sample points
-#
-# Output:
-#   Set of NMM
-#
-# TODO:
-#   Replace hard coded path by variable
-#   Export printing code into a procedure
-#   Simplify the code
-#   After adding the communication approach the number of NMM is much smaller, check this
-CalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string, id::integer) 
-  local csvFile, data, s, fileID;
-  local i, sdPlanes := [], trans, NMM:={}, rotSamp; 
-  local percent := -1, Signatures := {}, sig, msg;
-  local n := Grid:-NumNodes();
-  local planes := CriticalPlanes(vars, nTypes, kRange);
-
-# read sample points from a file and convert them to appropriate format
-  csvFile := FileTools:-JoinPath([sprintf(cat(dir,"/sam_%d.csv"), id)], base = homedir);
-  data := ImportMatrix(csvFile, 'source' = 'tsv', 'datatype' ='string');
-  data := Threads:-Map(proc (x) op(sscanf(x, %a)) end proc, data); 
-
-  # print a progress message
-  for i to upperbound(data)[1] do
-    if percent <>  round( i / upperbound(data)[1] * 100 ) then
-      percent := round( i / upperbound(data)[1] * 100 );
-      if percent mod 10 = 0 then
-        printf("[%s]:> Node: %d, finished: %d%%.\n",
-               StringTools:-FormatTime("%Y-%m-%d -- %R"),id,percent); 
-      end if;
-    end if;
-    rotSamp := convert(data[i], list); 
-    # discard the sample points for which NMM are already computed
-    sig, sdPlanes := GetOrderedCriticalPlanes(nType, kRange, rotSamp, planes); 
-    if member( sig, Signatures ) then
-      next;
-    end if;
-
-    trans := RecoverTranslationSamplePoints(sdPlanes); 
-    Get3DNMM(nType, trans, rotSamp, NMM);
-
-    Signatures := Signatures union {sig};
-  end do;
-
-  # write the result
-  fileID := fopen(sprintf("/home/plutak/debugNMM2/NMM_%d.tsv", id), WRITE, TEXT);
-  writedata(fileID, [op(NMM)], string, proc (f, x) fprintf(f, "%a", x) end proc);
-  fclose(fileID);
-end proc:
-
-# Procedure: ParallelCalculateNMM
-#   Uses Grid framework to reads data from hard drive and generates NMM
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
-#
-# Output:
-#   Set of NMM
-ParallelCalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string) 
-  local me;
-  me := Grid:-MyNode(); 
-  CalculateNMM(vars, nType, kRange, dir, me);
-  Grid:-Barrier();
-end proc:
-
-# Procedure: LaunchOnGridGetNMM
-#   Setup and run computation on a local grid
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
-#
-# Output:
-#   Write a set of NMM to a file given by fileName.
-LaunchOnGridGetNMM := proc (nType::string, kRange::list, dir::string, nodes:=20) 
-  Grid:-Setup("local", numnodes=nodes); 
-  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dir):
 end proc:
 
 #end module:

@@ -275,7 +275,7 @@ module RealAlgebraicNumber()
     local ll := a, rr := b, i;
 
     (* No intersection.*)
-    if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+    if evalb( ll:-b < rr:-a ) or evalb( ll:-a > rr:-b ) then
       return [a,b];
     fi:
 
@@ -284,7 +284,7 @@ module RealAlgebraicNumber()
       rr := BisectRange( rr ):
 
       (* No intersection.*)
-      if evalb( ll:-b <= rr:-a ) or evalb( ll:-a >= rr:-b ) then
+      if evalb( ll:-b < rr:-a ) or evalb( ll:-a > rr:-b ) then
         return [ll,rr];
       fi:
     od:
@@ -303,6 +303,11 @@ module RealAlgebraicNumber()
   export Compare::static := proc( l::RealAlgebraicNumber, r::RealAlgebraicNumber, $ )          
     local i::integer, a::rational, b::rational, F1::polynom, F2::polynom, G::polynom;
     local ll::RealAlgebraicNumber, rr::RealAlgebraicNumber;
+
+    if indets(l:-poly) <> indets(r:-poly) then
+      error "Univariate polynomials have different variables: %1 and %2.", indets(l:-poly),
+      indets(r:-poly);
+    fi;
 
     if evalb( l:-poly = r:-poly and l:-a = r:-a and l:-b = r:-b ) then
         return 0;
