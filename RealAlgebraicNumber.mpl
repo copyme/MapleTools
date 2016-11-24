@@ -321,9 +321,9 @@ module RealAlgebraicNumber()
     end if;
 
     (* Check if there is no intersection of the ranges *)
-    if evalb( l:-b <= r:-a ) then
+    if evalb( l:-b < r:-a ) then
       return -1;
-    elif evalb( l:-a >= r:-b ) then
+    elif evalb( l:-a > r:-b ) then
       return 1;
     end if:
 
@@ -353,9 +353,9 @@ module RealAlgebraicNumber()
     end if;
 
     (* Check if there is no intersection after refiment. *)
-    if evalb( ll:-b <= rr:-a ) then
+    if evalb( ll:-b < rr:-a ) then
       return -1;
-    elif evalb( ll:-a >= rr:-b ) then
+    elif evalb( ll:-a > rr:-b ) then
       return 1;
     end if;
 
@@ -405,9 +405,9 @@ module RealAlgebraicNumber()
       end if;
 
       (* No intersection after refiment. *)
-      if evalb( ll:-b <= rr:-a ) then
+      if evalb( ll:-b < rr:-a ) then
         return -1;
-      elif evalb( ll:-a >= rr:-b ) then
+      elif evalb( ll:-a > rr:-b ) then
         return 1;
       end if:   
     end do:

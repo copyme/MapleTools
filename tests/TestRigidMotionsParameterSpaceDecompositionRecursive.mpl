@@ -43,13 +43,8 @@ TestRigidMotionsParameterSpaceDecompositionRecursive := module()
   export InitModule, TestSpecialCases, TestAll:
 
 
-  InitModule := proc(path::string)
-    local mplFile;
-    mplFile := 
-    FileTools:-JoinPath([sprintf("%s/RigidMotionsParameterSpaceCommon.mpl",path)],base=homedir):
-    read mplFile: 
-    FileTools:-JoinPath([sprintf("%s/RealAlgebraicNumber.mpl",path)],base=homedir):
-    read mplFile: 
+  InitModule := proc()
+    local real::RealAlgebraicNumber, writer::SamplePointsWriter;
     Test := CodeTools:-Test;
     init := true:
   end proc:
@@ -79,12 +74,13 @@ TestRigidMotionsParameterSpaceDecompositionRecursive := module()
 
     # Fix the seed for reproducible random generation
     RandomTools:-MersenneTwister:-SetState(state=123456789);
-    quadrics(13) := [randpoly $ 20]([x,y], dense, degree=2, coeffs=rand(0..1));
+    quadrics(13) := [randpoly $ 60]([x,y], dense, degree=2, coeffs=rand(0..1));
     quadrics(13) := eval(quadrics(13), [x = -x, y = -y]);
 
     for i from 1 to upperbound(quadrics) do
     try
-        LaunchOnGridComputeSamplePoints2D(quadrics[i], 0, 1, false, i);
+       LaunchOnGridComputeSamplePoints2D(quadrics[i], 0, 20, true, i, [op(indets(quadrics(i)))],
+       "/tmp", "sam_" );
     catch:
         print("Error", lastexception);
     end try;

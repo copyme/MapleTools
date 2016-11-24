@@ -67,10 +67,10 @@ EliminationResultant := proc( S::~set, vars::~list )
   option cache:
   local p, var, res := S, permm;
   if nops(S) < 2 then
-    error "Wrong size of the input set. Expected size is at least 2.";
+    error "Wrong size of the input set: %1. Expected size is at least 2.", S;
   fi;
   if not andmap(type, S, `polynom`) then
-    error "Wrong type of elements. Expected argument is a set of polynomials!"; 
+    error "Wrong type of elements. Expected argument is a set of polynomials but received  %1."; S; 
   fi;
   if nops(vars) < 1 then
     error "Wrong number of indeterminates. It should be at least 2.";
@@ -203,3 +203,41 @@ SortAlgebraicNumbers := proc (numbers::list)
         end proc);
 end proc:
 
+module SamplePointsWriter()
+  option object;
+
+  local midpoint::rational;
+  local path::string;
+  local prefix::string;
+  export ModuleCopy::static := proc( self::SamplePointsWriter,
+                                     proto::SamplePointsWriter,
+                                     midpoint::rational,
+                                     path::string,
+                                     prefix::string, $ )
+    if _passed = 2 then
+      self:-midpoint := proto:-midpoint;
+      self:-path := proto:-path;
+      self:-prefix := proto:-prefix;
+    else
+      self:-midpoint := midpoint;
+      self:-path := path;
+      self:-prefix := prefix;
+    fi;
+
+    return self;
+  end proc;
+
+  export ModulePrint::static := proc( self::SamplePointsWriter )
+    nprintf("(midpoint: '%a', path: '%a', prefix: '%a')", self:-midpoint, self:-path, self:-prefix);
+  end proc:
+
+  export Write::static := proc( self::SamplePointsWriter, samplePoints, id )
+    local fileID, midpoint := self:-midpoint;
+    if nops(samplePoints) <> 0 then
+      fileID := fopen(sprintf("%s/%s%a.tsv", self:-path, self:-prefix, id), APPEND, TEXT):
+      writedata(fileID, samplePoints, string, proc (f, x) fprintf(f, "%a\t%a\t%a", midpoint, op(x)) end proc):
+      fclose(fileID):
+    fi:
+  end proc:
+
+end module;
