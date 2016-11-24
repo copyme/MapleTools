@@ -211,11 +211,14 @@ end proc:
 #
 #
 # Parameters:
-#   cluster            - each element contains a list of equal real algebraic number and quadrics
-#                        related.
+#   Q2D                - a list of conics
+#   cluster2D          - each element contains a list of equal real algebraic number and related
+#                        conics.
 #   first              - integer value which indicates a first cluster to proceed.
 #   last               - integer value which indicates a last cluster to proceed.
-#   id                 - id which indicates a node
+#   id                 - id which indicates a node/file
+#   vars               - list of variables in which conics are expressed
+#   writer             - an object of class SamplePointsWriter used to save sample points
 #
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
