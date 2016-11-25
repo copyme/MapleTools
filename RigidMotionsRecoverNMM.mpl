@@ -1,10 +1,51 @@
+# Procedure: Get3DNMM
+#   Compute neighbourhood motion maps
+#
+# Parameters:
+#   neighborhood     - a neighborhood for which one wants to compute NMM
+#   samplesTrans     - midpoints of frames in the remainder range
+#   sampleRot        - values of in determines (see CayleyTransform)
+#   NMMContainer     - a reference to a container which stores the output NMM
+#   R                - the rotation matrix obtained from CayleyTransform
+#   vars             - a list of variables in which R is expressed
+#
+# Output:
+#   Returns 3D neighborhood motion maps for given vars and corresponding translations.
+Get3DNMM := proc(neighborhood::list, samplesTrans::list, sampleRot::list, NMMContainer::uneval, R,
+                 vars::list) 
+  local RR := eval(R, [vars[1] = sampleRot[1], vars[2] = sampleRot[2], vars[3] = sampleRot[3]]);
+  local x, NMM := eval(NMMContainer); 
+  NMMContainer := NMM union {seq(map(proc (y) map(round, convert(RR.Vector(3, y)+Vector(3,x), list))
+  end proc, neighborhood),x in samplesTrans)};
+end proc;
+
+
+# Procedure: RecoverTranslationSamplePoints
+#   Compute midpoints of each frame in the remainder range
+#
+# Parameters:
+#   planes            - ordered list of planes in the remainder range
+#
+# Output:
+#   Returns centers of frames in the remainder range
+RecoverTranslationSamplePoints := proc(planes::list) 
+  local s:
+    s := proc(planes::list, i::integer, j::integer, k::integer)
+      return [(1/2)*add(planes[1][i .. i+1]), (1/2)*add(planes[2][j.. j+1]), 
+              (1/2)*add(planes[3][k .. k+1])];
+  end proc:
+  return [Threads:-Seq( seq( seq( s(planes, i, j, k), k=1..nops(planes[3]-1) ),
+  j=1..nops(planes[2]-1) ), i =1..nops(planes[1])-1 )]:
+end proc:
+
+
 # Procedure: GetOrderedCriticalPlanes
 #   Compute critical planes in the remainder range
 #
 # Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   samplePoints     - values of a, b, c (see CayleyTransform)
+#   vars             - a list of variables
+#   samplePoints     - values of vars[1], vars[2], vars[3] (see CayleyTransform)
+#   planes           - a precomputed list of planes in the remainder range
 #
 # Output:
 #   Returns signature of order and ordered critical planes 
@@ -18,9 +59,9 @@ GetOrderedCriticalPlanes := proc(vars::list, samplePoints::list, planes::list)
     error "Only 3D arrangement is supported.";
   fi;
   
-  sdPlanes[1] := eval(sdPlanes[1], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  sdPlanes[2] := eval(sdPlanes[2], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
-  sdPlanes[3] := eval(sdPlanes[3], {a = samplePoints[1], b = samplePoints[2], c = samplePoints[3]});
+  sdPlanes[1] := eval(sdPlanes[1], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
+  sdPlanes[2] := eval(sdPlanes[2], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
+  sdPlanes[3] := eval(sdPlanes[3], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
   
   xSig, sdPlanes[1] := Isort(sdPlanes[1]); 
   ySig, sdPlanes[2] := Isort(sdPlanes[2]); 
@@ -43,54 +84,19 @@ GetOrderedCriticalPlanes := proc(vars::list, samplePoints::list, planes::list)
 end proc:
 
 
-# Procedure: RecoverTranslationSamplePoints
-#   Compute midpoints of each frame in the remainder range
+# Procedure: CriticalPlanes
+#   Compute critical planes in the remainder range
 #
 # Parameters:
-#   xPlanes            - ordered X critical planes in the remainder range
-#   yPlanes            - ordered Y critical planes in the remainder range
-#   zPlanes            - ordered Z critical planes in the remainder range
+#   R                - the rotation matrix obtained from CayleyTransform
+#   neighborhood     - a neighborhood for which one wants to compute NMM
+#   kRange           - a range of planes to consider
 #
 # Output:
-#   Returns centers of frames in the remainder range
-RecoverTranslationSamplePoints := proc(planes::list) 
-  local i, j, k; 
-  local samples := []; 
-  for i to upperbound(planes[1]) - 1 do
-    for j to upperbound(planes[2]) - 1 do 
-      for k to upperbound(planes[3]) - 1 do 
-        samples := [op(samples), [(1/2)*add(planes[1][i .. i+1]), 
-                    (1/2)*add(planes[2][j.. j+1]), (1/2)*add(planes[3][k .. k+1])]];
-      end do;
-    end do;
-  end do; 
-  return samples; 
-end proc:
-
-
-# Procedure: Get3DNMM
-#   Compute neighbourhood motion maps
-#
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   samplesTrans     - midpoints of frames in the remainder range
-#   sampleRot        - values of a, b, c (see CayleyTransform)
-#
-# Output:
-#   Returns 3D neighbourhood motion maps for given a,b,c and corresponding translations.
-Get3DNMM := proc(nType::string, samplesTrans::list, sampleRot::list, NMMContainer::uneval) 
-  local x;
-  local R := eval(CayleyTransform({a,b,c}), {a = sampleRot[1], b = sampleRot[2], c = sampleRot[3]});
-  local n := GetNeighborhood(nType);
-  local NMM := eval(NMMContainer); 
-  NMMContainer := NMM union {seq(map(proc (y) map(round, convert(R.Vector(3, y)+Vector(3,x), list))
-  end proc, n),x in samplesTrans)};
-end proc;
-
-CriticalPlanes := proc(vars::list, nType::string, kRange::list)
-  local R := CayleyTransform(vars);
+#   Returns a list of lists each containing critical planes for one direction
+CriticalPlanes := proc(R::Matrix, neighborhood::list, kRange::list)
   # we remove 7th element -- [0, 0, 0]
-  local n := subsop(7=NULL, GetNeighborhood(nType)); 
+  local n := subsop(7=NULL, neighborhood); 
   local T := combinat:-cartprod([n, kRange]);
   local planes := [[],[],[]]; 
   local params;
@@ -100,9 +106,7 @@ CriticalPlanes := proc(vars::list, nType::string, kRange::list)
     planes[2] := [op(planes[2]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
     planes[3] := [op(planes[3]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
   end do;
-
  return planes;
-
 end proc;
 
 
@@ -112,27 +116,30 @@ end proc;
 # Parameters:
 #   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
+#   dirIn            - a directory which contains sample points
+#   dirOut           - a directory to which save NMM
+#   prefixIn         - a prefix of files which contains sample points
+#   prefixOut        - a prefix of files which will contain NMM
 #   id               - an id of a file which contains sample points
 #
 # Output:
 #   Set of NMM
 #
 # TODO:
-#   Replace hard coded path by variable
 #   Export printing code into a procedure
 #   Simplify the code
-#   After adding the communication approach the number of NMM is much smaller, check this
-CalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string, id::integer) 
-  local csvFile, data, s, fileID;
+CalculateNMM := proc(nType::string, kRange::list, dirIn::string, dirOut::string, prefixIn::string,
+                     prefixOut::string, id::integer) 
+  local data, s, fileID, vars := [a,b,c];
+  local R := CayleyTransform(vars);
+  local neighborhood := GetNeighborhood(nType); 
   local i, sdPlanes := [], trans, NMM:={}, rotSamp; 
   local percent := -1, Signatures := {}, sig, msg;
   local n := Grid:-NumNodes();
-  local planes := CriticalPlanes(vars, nTypes, kRange);
+  local planes := CriticalPlanes(R, neighborhood, kRange);
 
-# read sample points from a file and convert them to appropriate format
-  csvFile := FileTools:-JoinPath([sprintf(cat(dir,"/sam_%d.csv"), id)], base = homedir);
-  data := ImportMatrix(csvFile, 'source' = 'tsv', 'datatype' ='string');
+  # read sample points from a file and convert them to appropriate format
+  data := ImportMatrix(sprintf("%s/%s%d.tsv", dirIn, prefixIN, id), 'source' = 'tsv', 'datatype'='string'); 
   data := Threads:-Map(proc (x) op(sscanf(x, %a)) end proc, data); 
 
   # print a progress message
@@ -141,24 +148,24 @@ CalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string, id::i
       percent := round( i / upperbound(data)[1] * 100 );
       if percent mod 10 = 0 then
         printf("[%s]:> Node: %d, finished: %d%%.\n",
-               StringTools:-FormatTime("%Y-%m-%d -- %R"),id,percent); 
+               StringTools:-FormatTime("%Y-%m-%d -- %R"),id, percent); 
       end if;
     end if;
     rotSamp := convert(data[i], list); 
     # discard the sample points for which NMM are already computed
-    sig, sdPlanes := GetOrderedCriticalPlanes(nType, kRange, rotSamp, planes); 
+    sig, sdPlanes := GetOrderedCriticalPlanes(vars, rotSamp, planes); 
     if member( sig, Signatures ) then
       next;
     end if;
 
     trans := RecoverTranslationSamplePoints(sdPlanes); 
-    Get3DNMM(nType, trans, rotSamp, NMM);
+    Get3DNMM(neighborhood, trans, rotSamp, NMM, R, vars);
 
     Signatures := Signatures union {sig};
   end do;
 
   # write the result
-  fileID := fopen(sprintf("/home/plutak/debugNMM2/NMM_%d.tsv", id), WRITE, TEXT);
+  fileID := fopen(sprintf("%s/%s%d.tsv", dirOur, prefixOut, id), WRITE, TEXT);
   writedata(fileID, [op(NMM)], string, proc (f, x) fprintf(f, "%a", x) end proc);
   fclose(fileID);
 end proc:
@@ -169,14 +176,18 @@ end proc:
 # Parameters:
 #   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
+#   dirIn            - a directory which contains sample points
+#   dirOut           - a directory to which save NMM
+#   prefixIn         - a prefix of files which contains sample points
+#   prefixOut        - a prefix of files which will contain NMM
 #
 # Output:
 #   Set of NMM
-ParallelCalculateNMM := proc(vars::list, nType::string, kRange::list, dir::string) 
+ParallelCalculateNMM := proc(vars::list, nType::string, kRange::list, dirIn::string, dirOut::string,
+                             prefixIn::string, prefixOut::string) 
   local me;
   me := Grid:-MyNode(); 
-  CalculateNMM(vars, nType, kRange, dir, me);
+  CalculateNMM(vars, nType, kRange, dirIn, dirOut, prefixIn, prefixOut, me);
   Grid:-Barrier();
 end proc:
 
@@ -186,12 +197,16 @@ end proc:
 # Parameters:
 #   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange           - a range of planes to consider
-#   dir              - a directory which contains sample points
+#   dirIn            - a directory which contains sample points
+#   dirOut           - a directory to which save NMM
+#   prefixIn         - a prefix of files which contains sample points
+#   prefixOut        - a prefix of files which will contain NMM
 #
 # Output:
-#   Write a set of NMM to a file given by fileName.
-LaunchOnGridGetNMM := proc (nType::string, kRange::list, dir::string, nodes:=20) 
+#   Write a set of NMM to a file given by dirOut/prefixOut(id).tsv
+LaunchOnGridGetNMM := proc (nType::string, kRange::list, dirIn::string, dirOut::string,
+                             prefixIn::string, prefixOut::string, nodes:=20) 
   Grid:-Setup("local", numnodes=nodes); 
-  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dir):
+  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dirIn, dirOut, prefixIn, prefixOut);
 end proc:
 
