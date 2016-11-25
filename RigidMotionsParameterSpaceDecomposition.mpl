@@ -80,6 +80,7 @@ GetQuadric := proc( R::~Matrix,
   end if:
 end proc:
 
+
 # Procedure: IsMonotonic
 #   Check if given polynomial of degree 2 is non-positive or non-negative
 #
@@ -97,6 +98,7 @@ IsMonotonic := proc( x::~polynom )
   clean := remove( `=`, signmap , 0 ):
   return ( andmap( `=`, clean, 1 ) or andmap( `=`, clean, -1 ) ):
 end proc:
+
 
 # Procedure: ComputeSetOfQuadrics
 #   Compute a set of quadrics which are reduced by duplicated and these ones
@@ -145,18 +147,22 @@ ComputeSetOfQuadrics := proc( R::~Matrix,
   return quadrics:
 end proc:
 
+
 # Procedure: IsAsymptotic
 #   Checks if given quadric has an asymptotic critical value. For this moment a direction is fixed
 #   to a.
 #
 # Parameters:
 #   x          - a quadric in three variables
+#   vars       - a list of variables
 #
 # Output:
-#   List of solution for which partial derivatives in b and c are collinear
-IsAsymptotic := proc(x::polynom)
-  local vars, vec, Vb, Vc, VV, sols;
-  vars := [op(indets(x))];
+#   List of solution for which partial derivatives in vars[2] and vars[3] are collinear.
+IsAsymptotic := proc(x::polynom, vars::list)
+  local vec, Vb, Vc, VV, sols;
+  if nops(vars) < 3 then
+    error "Expected at least three variables!";
+  fi;
   vec := VectorCalculus:-Gradient(x, vars);
   Vb := Vector(3, [coeff(vec[2],vars[2]),coeff(vec[2],vars[3]),eval(vec[2],[vars[-2]=0,vars[-1]=0])]);
   Vc := Vector(3, [coeff(vec[3],vars[2]),coeff(vec[3],vars[3]),eval(vec[3],[vars[-2]=0,vars[-1]=0])]);
@@ -172,6 +178,7 @@ IsAsymptotic := proc(x::polynom)
   fi;
 end proc:
 
+
 # Procedure: IsAsymptoticIntersection
 #   Checks if intersection of two quadrics has an asymptotic critical value. For this moment a
 #   direction is fixed to a.
@@ -179,6 +186,7 @@ end proc:
 # Parameters:
 #   p          - a quadric in three variables
 #   q          - a quadric in three variables
+#   vars       - a list of variables
 #
 # Output:
 #   List of solution for which intersection of p and q has an asymptotic intersection
@@ -189,16 +197,18 @@ end proc:
 # TODO:
 #   - Allow user to chose a direction. 
 #   - if there is no intersection between quadrics then skip it.
-IsAsymptoticIntersection := proc( p::polynom, q::polynom  )
-  local J := PolynomialIdeals:-`<,>`(p,q), vars := indets([p,q]);
-  local Pb, Pc, Cb, Cc, sols, univ:
-
-  Pb := PolynomialIdeals:-EliminationIdeal(J,vars[1..2]):
-  Pb := PolynomialIdeals:-IdealInfo:-Generators(Pb)[1]:
-  Pc := PolynomialIdeals:-EliminationIdeal(J,vars[[1,3]]):
-  Pc := PolynomialIdeals:-IdealInfo:-Generators(Pc)[1]:
-  Cb := lcoeff(Pb, vars[2]):
-  Cc := lcoeff(Pc, vars[3]):
+IsAsymptoticIntersection := proc( p::polynom, q::polynom, vars::list )
+  local J := PolynomialIdeals:-`<,>`(p,q);
+  local Pb, Pc, Cb, Cc, sols, univ;
+  if nops(vars) < 3 then
+    error "Expected at least three variables!";
+  fi;
+  Pb := PolynomialIdeals:-EliminationIdeal(J,{op(vars[1..2])}):
+  Pb := PolynomialIdeals:-IdealInfo:-Generators(Pb)[1];
+  Pc := PolynomialIdeals:-EliminationIdeal(J,{op(vars[[1,3]])});
+  Pc := PolynomialIdeals:-IdealInfo:-Generators(Pc)[1];
+  Cb := lcoeff(Pb, vars[2]);
+  Cc := lcoeff(Pc, vars[3]);
   return gcd(Cb,Cc);
 end proc:
 
@@ -209,35 +219,33 @@ end proc:
 # Parameters:
 #   Q          - a set of quadrics or conics
 #   dim        - a list of indexes of variables used to calculate partial derivatives
+#   vars       - a list of variables
 #
 # Output:
 #   List of ranges which contains roots of a system(q, d/db q, d/dc q).
 #
 # Comment:
 #  - only the first direction is supported since EliminationResultant is used
-ComputeEventsATypeGrid := proc( Q, dim::list )
+ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
   local s:
-   s := proc(i::integer)
-    local sys, univ, sol, vars:
-    local q := Q[i];
-    vars := [ op( indets( q ) ) ];
-    if nops(vars) = 3 then
-      sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
-    else
-      error "Only system in three variables is supported!";
-    fi:
-    univ := EliminationResultant(sys, [ op( indets(sys ) ) ]):
-    if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
-      sol := nops(select(e -> rhs(e) >= 0, sol)):
-      if sol > 0 then
-        return [univ, [i]]:
-      else
-        return NULL:
-      fi:
-    end if:
+  if nops(vars) < 3 then
+    error "Expected at least three variables!";
+  fi;
+  s := proc(i::integer, vars::list)
+   local sys, univ, sol;
+   local q := Q[i];
+   sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
+   univ := EliminationResultant(sys, vars):
+   if not type( univ, constant ) then
+     sol := RootFinding:-Isolate(univ):
+     if nops(sol) > 0 then
+       return [univ, [i]]:
+     else
+       return NULL:
+     fi:
+   fi:
   end proc:
-  return [Grid:-Seq(s(i),i=1..nops(Q))]:
+  return [Grid:-Seq(s(i, vars),i=1..nops(Q))]:
 end proc:
 
 
@@ -248,36 +256,32 @@ end proc:
 #   dir        - a direction of a gradient product it should
 #                be the same as director of sweep 
 #   Q          - a set of conics
+#   vars       - a list of variables
 #
 # Output:
 #   Indexes of quadrics which intersect and a component of a vector product of 
 #   their gradients in given direction have a common root.
-ComputeEventsBTypeGrid := proc( Q, dir::integer )
+ComputeEventsBTypeGrid := proc( Q, dir::integer, vars::list )
   local s:
-  s := proc(i, j)
-      local p, prod, ivars, jvars, univ, sys, vars, sol:
-      vars := indets ( [ Q[i], Q[j] ] ):
-      if nops ( vars ) = 3 then
-        ivars := [ op( indets( [ Q[i] ] ) ) ]:
-        jvars := [ op( indets( [ Q[j] ] ) ) ]:
-        prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], ivars ),
-                                    VectorCalculus:-Gradient( Q[j], jvars ) )[dir]:
-        sys := { Q[i], Q[j], prod }:
+  if nops(vars) < 3 then
+    error "Expected at least three a variables!";
+  fi;
+  s := proc(i, j, vars::list)
+    local p, prod, univ, sys, sol:
+    prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], vars ),
+                                    VectorCalculus:-Gradient( Q[j], vars ) )[dir]:
+    sys := { Q[i], Q[j], prod }:
+    univ := EliminationResultant(sys, vars):
+    if not type( univ, constant ) then
+      sol := RootFinding:-Isolate(univ):
+      if nops(sol) > 0 then
+        return [univ, [i,j]]:
       else
-        error "Only system in three variables is supported!";
-      fi:
-      univ := EliminationResultant(sys, [ op( indets(sys) ) ]):
-      if not type( univ, constant ) then
-        sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
-        sol := nops(select(e -> rhs(e) >= 0, sol)):
-       if sol > 0 then
-         return [univ, [i,j]]:
-       else
-         return NULL:
-       fi;
-      fi:
+        return NULL:
+      fi;
+    fi:
   end proc:
-  return [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]:
+  return [Grid:-Seq(seq(s(i, j, vars),j=i+1..nops(Q)),i=1..nops(Q))]:
 end proc:
 
 
@@ -286,25 +290,28 @@ end proc:
 #
 # Parameters:
 #   Q          - a set of quadrics
+#   vars       - a list of variables
 #
 # Output:
 #   Indexes of quadrics which intersect in a point.
-ComputeEventsCTypeGrid := proc( Q )
+ComputeEventsCTypeGrid := proc( Q, vars::list )
   local s:
-  s := proc (i, j, k)
+  if nops(vars) < 3 then
+    error "Expected at least three a variables!";
+  fi;
+  s := proc (i, j, k, vars::list)
     local p, sol, univ, sys;
     sys := { Q[i], Q[j], Q[k] }:
-    univ := EliminationResultant(sys, [ op( indets(sys) ) ]):
+    univ := EliminationResultant(sys, vars):
     if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, [ op( indets(univ ) ) ]):
-      sol := nops(select(e -> rhs(e) >= 0, sol)):
-      if sol > 0 then
+      sol := RootFinding:-Isolate(univ):
+      if nops(sol) > 0 then
         return [ univ, [i,j,k] ]:
-      fi:
+      fi;
     fi;
     return NULL:
    end proc:
-   return [Grid:-Seq(seq(seq(s(i,j,k),k=j+1..nops(Q)),j=i+1..nops(Q)),i=1..nops(Q))]:
+   return [Grid:-Seq(seq(seq(s(i, j, k, vars),k=j+1..nops(Q)),j=i+1..nops(Q)),i=1..nops(Q))]:
 end proc:
 
 
@@ -314,15 +321,19 @@ end proc:
 #
 # Parameters:
 #   Q          - a set of quadrics
+#   vars       - a list of variables
 #
 # Output:
 #   A list of real algebraic numbers and indexes of quadrics
 #   which corresponds to them.
-ComputeAsymptoticAAEventsGrid:=proc(Q::~set)
-  local list := [], s;
-  s:=proc(i::integer)
+ComputeAsymptoticAAEventsGrid:=proc(Q, vars::list)
+  local listTmp := [], s;
+  if nops(vars) < 3 then
+    error "Expected at least three a variables!";
+  fi;
+  s:=proc(i::integer, vars::list)
     local numbers := [], sol, rootsF, tmp:
-    rootsF := IsAsymptotic(Q[i]):
+    rootsF := IsAsymptotic(Q[i], vars):
     for sol in rootsF do
       if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
@@ -332,8 +343,8 @@ ComputeAsymptoticAAEventsGrid:=proc(Q::~set)
     od:
     return numbers;
   end proc:
-  list:= select(proc(x) return evalb(x<>[]) end, [Grid:-Seq(s(i),i=1..nops(Q))]);
-  return ListTools:-Flatten(list, 1);
+  listTmp := select(proc(x) return evalb(x<>[]) end, [Grid:-Seq(s(i, vars),i=1..nops(Q))]);
+  return ListTools:-Flatten(listTmp, 1);
 end:
 
 
@@ -343,30 +354,34 @@ end:
 #
 # Parameters:
 #   Q          - a set of quadrics
+#   vars       - a list of variables
 #
 # Output:
 #   A list of real algebraic numbers and indexes of quadrics
 #   which corresponds to them.
-ComputeAsymptoticABEventsGrid:=proc(Q::~set)
+ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
   local listTmp:=[], s;
-   s:=proc(i::integer, j::integer)
-    local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
-    poly := IsAsymptoticIntersection(Q[i], Q[j]):
-    if poly = NULL or nops(poly) = 0 then
-      return [];
-    fi:
-    factored := factors( poly )[2,..,1]: 
-    for sqrFree in factored do
-       rootsF := RootFinding:-Isolate(sqrFree, op(indets(sqrFree)), output='interval');
-       for rf in rootsF do
-         numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-         op(rf)[2][2]), [i,j]]]: 
-       od:
-    od:
-    return numbers;
+  if nops(vars) < 3 then
+    error "Expected at least three a variables!";
+  fi;
+  s:=proc(i::integer, j::integer, vars::list)
+   local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
+   poly := IsAsymptoticIntersection(Q[i], Q[j], vars):
+   if poly = NULL or nops(poly) = 0 then
+     return [];
+   fi:
+   factored := factors( poly )[2,..,1]: 
+   for sqrFree in factored do
+      rootsF := RootFinding:-Isolate(sqrFree, op(indets(sqrFree)), output='interval');
+      for rf in rootsF do
+        numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+        op(rf)[2][2]), [i,j]]]: 
+      od:
+   od:
+   return numbers;
   end proc:
-  listTmp:=select(proc(x) return evalb(x<>[]) end,
-  [Grid:-Seq(seq(s(i,j),j=i+1..nops(Q)),i=1..nops(Q))]);
+  listTmp := select(proc(x) return evalb(x<>[]) end,
+  [Grid:-Seq(seq(s(i, j, vars),j=i+1..nops(Q)),i=1..nops(Q))]);
   return ListTools:-Flatten(listTmp, 1);
 end proc:
 
@@ -376,16 +391,17 @@ end proc:
 #
 # Parameters:
 #   Q     - set of quadrics or conics
+#   vars       - a list of variables
 # Output:
 #   Sorted set of real algebraic numbers
-ComputeEventsAlgebraicNumbers := proc( Q::~set )
+ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
   local events, rootsF, rf, poly:
   local numbers := Array([]):
   local numAsym;
   local factored, sqrFree:
 
-  events:= {op(ComputeEventsATypeGrid( Q, [2, 3] )), op(ComputeEventsBTypeGrid( Q, 1 )),
-                                                       op(ComputeEventsCTypeGrid( Q ))}:
+  events:= {op(ComputeEventsATypeGrid( Q, [2, 3], vars )), op(ComputeEventsBTypeGrid( Q, 1, vars )),
+                                                       op(ComputeEventsCTypeGrid( Q, vars ))}:
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
@@ -397,12 +413,14 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set )
     od:
   od:
   
-  numAsym:=ComputeAsymptoticAAEventsGrid(Q);
+  numAsym:=ComputeAsymptoticAAEventsGrid(Q, vars);
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
-  numAsym:=ComputeAsymptoticABEventsGrid(Q);
+  numAsym:=ComputeAsymptoticABEventsGrid(Q, vars);
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
   
-  numbers := sort(numbers, 
+  # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
+  if upperbound(numbers) <> 0 then
+      numbers := sort(numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
                                return true:
@@ -411,6 +429,7 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set )
                              fi:
                            end proc
                   ):
+  fi;
   return numbers:
 end proc:
 
@@ -424,14 +443,17 @@ end proc:
 #   first              - integer value which indicates a first cluster to proceed.
 #   last               - integer value which indicates a last cluster to proceed.
 #   id                 - id which indicates a node
+#   vars               - list of variables in which conics are expressed
+#   path               - directory in which the output is going to be saved
+#   prefix             - file name prefix
+#   skipped            -  a list of the cluster indices to be skipped
 #
 # Output:
-#   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
-#   positive since other variation are same up to some similarities (reflections and rotations).
-#
-ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
-                             last::integer, id::integer, grid::boolean, skipped::list:=[])
-  local i, x, midpoint, sys, samplePoints, fileID, vars, disjointEvent:=[]:
+#  See  ComputeSamplePoints2D
+ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer,
+                             grid::boolean, vars::list, path::string,
+                             prefix::string, skipped::list:=[]) 
+local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
@@ -443,7 +465,6 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
     for x in cluster[i] do 
       sys := sys union Q[x[2]]:
     end do:
-    vars := indets(sys):
 
     disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
@@ -451,14 +472,15 @@ ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer,
     sys := eval(convert(sys, list), vars[1] = midpoint);
 
    if grid then 
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id);
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], path, prefix);
    else
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id);
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], path, prefix);
    fi;
     
-  end do:
-  return NULL:
+  end do;
+  return NULL;
 end proc:
+
 
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions using the grid framework
@@ -467,17 +489,20 @@ end proc:
 # Parameters:
 #   nType      - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange     - a range of planes to consider
+#   vars               - list of variables in which conics are expressed
+#   path      - directory in which the output is going to be saved
+#   prefix    - file name prefix
 # Output:
-#   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
-#   thread during computations.
-CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer)
+#  See  ComputeSamplePoints2D.
+CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer, vars::list, path::string,
+                                   prefix::string) 
   local i, card;
   local skipped := [];
   for i from 1 to nops(cluster) -1 do
    card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
    if card >= treshold then
       skipped := [op(skipped),i];
-     ComputeSamplePoints(Q, cluster, i, i, 0, true);
+     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, path, prefix);
    fi
   od;
   return skipped;
@@ -494,51 +519,52 @@ ParallelComputeSamplePoints := proc ()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, false, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, false, vars, path, prefix, skipped);
   Grid:-Barrier();
 end proc:
+
 
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions using the grid framework
 #
 #
 # Parameters:
-#   nType      - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange     - a range of planes to consider
+#   variables      - list of variables in which conics are expressed
+#   pathP          - directory in which the output is going to be saved
+#   prefixP        - file name prefix
+#   nType          - size of neighborhood i.e. N_1, N_2, N_3. 
+#   kRange         - a range of planes to consider
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
-LaunchOnGridComputeSamplePoints := proc (vars::list, nType::string, kRange::list, treshold::integer, nodes:=20) 
-  local numbers, events, R, rootTmp: 
-  global Q, cluster, skipped:
+LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
+                                         nType::string, kRange::list, treshold::integer, nodes:=20) 
+  local numbers, firstEvent, R, rootTmp: 
+  global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP; 
   kernelopts(printbytes=false):
-  Grid:-Setup("local",numnodes=nodes):
+  Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(vars):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
-       ComputeSetOfQuadrics(R, nType, 3, kRange):
-  numbers := ComputeEventsAlgebraicNumbers(Q):
+       ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(vars)};
+  numbers := ComputeEventsAlgebraicNumbers(Q, vars):
   numbers := convert(numbers, list):
-  numbers := ThreadsRemove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   cluster := ClusterEvents(numbers):
-  # Collect all unique quadrics
-  events := ListTools:-MakeUnique(Threads:-Map(op, [seq(op(cluster[i][..,2]), i = 1..nops(cluster))])):
   # assign all quadrics to the second event
-  cluster := [[[cluster[1][1][1], events]], op(cluster[2..])]:
+  cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
-  events := cluster[-1][1][1]:
-  rootTmp:= GetInterval(events)[2]+1/4;
-  events := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(events))[1] -
-  numer(rootTmp), rootTmp, rootTmp):
-  cluster := [op(cluster), [events,cluster[-1][1][2]]]:
+  rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars[1]-numer(rootTmp), rootTmp, rootTmp):
+  cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
   # The first cluster is heavy so we compute it separately;
-  skipped := CalculateHeavyIntersection(Q, cluster, treshold); 
+  skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix); 
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   Grid:-Launch(ParallelComputeSamplePoints,
-               imports = ['Q, cluster, skipped'], numnodes=nodes, printer=proc(x) return NULL: end proc
-              ):
+               imports = ['Q, cluster, skipped, vars, path, prefix'], numnodes=nodes,
+               printer=proc(x) return NULL: end proc):
 end proc:
 
 #end module:

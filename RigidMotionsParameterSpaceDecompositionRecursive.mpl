@@ -149,7 +149,7 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars::list)
   od;
   ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2, vars)]));
   
-  # In maple 2015.2 there is a bug which causes: stack limit reached
+  # In maple 2015.2 there is a bug which causes: stack limit reached while sorting an empty Array
   if upperbound(numbers) <> 0 then
     numbers := sort(numbers, 
                            proc( l, r ) 
@@ -163,6 +163,7 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars::list)
   fi:
   return numbers;
 end proc:
+
 
 # Procedure: ComputeEventsAType1D
 #   Compute and sort events as algebraic numbers 
@@ -208,7 +209,6 @@ end proc:
 
 # Procedure: ComputeSamplePoints2D
 #   Computes sample points for rotational part of rigid motions
-#
 #
 # Parameters:
 #   Q2D                - a list of conics
@@ -306,8 +306,7 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string)
   # assign all conics to the first event
   cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
   rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp) * indets(GetPolynomial(firstEvent))[1] -
-  numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
 
   writer := Object(SamplePointsWriter, midpoint, path, prefix);
