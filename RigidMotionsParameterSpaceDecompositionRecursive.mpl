@@ -7,36 +7,36 @@
 #   Q2D2       - a set of conics
 #   grid       - if true then computations are performed in the parallel computation framework
 #                called Grid (see Maple documentation)
-#   vars       - a list of the variables
+#   vars2D       - a list of the variables
 #
 # Output:
 #   list of couples: univariate polynomial and index of the generating conic: [poly, [index]]
 #
 # Comment/Limitations:
 #  - Univariate polynomials are expressed in the first variable.
-ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars::list)
+ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars2D::list)
   local s:
-  if nops(vars) < 2 then
-    error "ComputeEventsAType2D: Only systems in at least two variables are supported.";
+  if nops(vars2D) < 2 then
+    error "Only systems in at least two variables are supported. The variables are: %1.", vars2D;
   fi:
-  s := proc(i::integer, vars::list)
+  s := proc(i::integer, vars2D::list)
     local sys, univ, sol:
     local q := Q2D2[i];
-    sys := { q, diff( q, vars[2] ) };
-    univ := EliminationResultant(sys, vars):
+    sys := { q, diff( q, vars2D[2] ) };
+    univ := EliminationResultant(sys, vars2D):
     if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, vars[1..1]):
+      sol := RootFinding:-Isolate( univ, vars2D[1..1]):
       if nops(sol) > 0 then
-        return [univ, [i]]:
+        return [univ, [i]];
       else
-        return NULL:
-      fi:
-    end if:
-  end proc:
+        return NULL;
+      fi;
+    end if;
+  end proc;
   if grid then
-    return [Grid:-Seq( s( i, vars ), i=1..nops( Q2D2 ) )]:
+    return [Grid:-Seq( s( i, vars2D ), i=1..nops( Q2D2 ) )]:
   else 
-    return [seq( s( i, vars ), i=1..nops( Q2D2 ) )]:
+    return [seq( s( i, vars2D ), i=1..nops( Q2D2 ) )]:
   fi;
 end proc:
 
@@ -47,7 +47,7 @@ end proc:
 #   Q2D2       - a set of conics
 #   grid       - if true then computations are performed in the parallel computation framework
 #                called Grid (see Maple documentation)
-#   vars       - a list of the variables
+#   vars2D       - a list of the variables
 #
 # Output:
 #   list of couples: univariate polynomial and indices of the generating conics: [poly,
@@ -55,14 +55,14 @@ end proc:
 #
 # Comment/Limitations:
 #  - Univariate polynomials are expressed in the first variable.
-ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars::list)
+ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars2D::list)
   local s:
-  s := proc (i, j, vars::list)
+  s := proc (i, j, vars2D::list)
     local p, sol, univ, sys;
     sys := {Q2D2[i], Q2D2[j]}:
-    univ := EliminationResultant(sys, vars):
+    univ := EliminationResultant(sys, vars2D):
     if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, vars[1..1]):
+      sol := RootFinding:-Isolate( univ, vars2D[1..1]):
       if nops(sol) > 0 then
         return [ univ, [i,j] ]:
       fi:
@@ -70,9 +70,9 @@ ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars::list)
     return NULL:
    end proc:
    if grid then
-     return [Grid:-Seq( seq( s( i, j, vars ), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
+     return [Grid:-Seq( seq( s(i, j, vars2D), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
    else
-     return [seq( seq( s(i, j, vars ), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
+     return [seq( seq( s(i, j, vars2D), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
    fi;
 end proc:
 
@@ -96,18 +96,18 @@ end proc:
 #
 # Parameters:
 #   Q2D2          - a set of conics
-#   vars       - a list of the variables
+#   vars2D       - a list of the variables
 #
 # Output: Real
 #   A list of real algebraic numbers and indexes of conics: [ RealAlgebraicNumber, [index]].
-ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars::list)
+ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars2D::list)
   local out := [], s;
-  s:=proc(i::integer, vars::list)
+  s:=proc(i::integer, vars2D::list)
     local rf, rootsF;
     local numbers := [], asy:
-     asy := IsAsymptotic2D(Q2D2[i], vars[-1]);
+     asy := IsAsymptotic2D(Q2D2[i], vars2D[-1]);
      if not type(asy, constant) then
-       rootsF := RootFinding:-Isolate(asy, vars[1], output='interval');
+       rootsF := RootFinding:-Isolate(asy, vars2D[1], output='interval');
        for rf in rootsF do
          numbers:=[op(numbers), [Object(RealAlgebraicNumber, asy, op(rf)[2][1],
          op(rf)[2][2]), [i]]];
@@ -115,7 +115,7 @@ ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars::list)
      fi:
     return numbers;
   end proc:
-  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars),i=1..nops(Q2D2))]);
+  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
   return ListTools:-Flatten(out, 1);
 end:
 
@@ -127,16 +127,16 @@ end:
 #   Q2D2     - set of conics
 #   grid       - if true then computations are performed in the parallel computation framework
 #                called Grid (see Maple documentation)
-#   vars       - a list of the variables
+#   vars2D       - a list of the variables
 #
 # Output:
 #   Sorted Array of real algebraic numbers
-ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars::list)
+ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
   local events, rootsF, rf, poly;
   local numbers := Array([]);
   local factored, sqrFree;
 
-  events:= [op(ComputeEventsAType2D(Q2D2, grid, vars)), op(ComputeEventsBType2D(Q2D2, grid, vars))];
+  events:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, vars2D))];
   for poly in events do
     factored := factors(poly[1])[2,..,1];
     for sqrFree in factored do
@@ -147,7 +147,7 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars::list)
       od;
     od;
   od;
-  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2, vars)]));
+  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2, vars2D)]));
   
   # In maple 2015.2 there is a bug which causes: stack limit reached while sorting an empty Array
   if upperbound(numbers) <> 0 then
@@ -203,7 +203,7 @@ ParallelComputeSamplePoints2D := proc ()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster2D)-1)/numNodes);
-  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, vars, writer);
+  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, vars2D, writer);
   Grid:-Barrier();
 end proc:
 
@@ -217,7 +217,7 @@ end proc:
 #   first              - integer value which indicates a first cluster to proceed.
 #   last               - integer value which indicates a last cluster to proceed.
 #   id                 - id which indicates a node/file
-#   vars               - list of variables in which conics are expressed
+#   vars2D               - list of variables in which conics are expressed
 #   writer             - an object of class SamplePointsWriter used to save sample points
 #
 # Output:
@@ -225,7 +225,7 @@ end proc:
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
 ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer, id::integer,
-vars::list, writer)
+                              vars2D::list, writer)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
   local disjointEvent::list, oneD::list, oneDNeg::list;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
@@ -243,7 +243,7 @@ vars::list, writer)
    
     # intersection of a line with  conics
     # never call eval with sets!
-    sys := eval(sys, vars[1] = midpoint):
+    sys := eval(sys, vars2D[1] = midpoint):
     oneD := ComputeEventsAType1D(sys);
     if oneD = NULL then
       next;
@@ -288,11 +288,11 @@ end proc:
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
 grid::boolean, id::integer, variables::list, path::string, prefix::string) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
-  global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars := variables;
+  global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars2D := variables;
   if grid and nops(s) > 20 then
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars2D), list);
   else
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, vars), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, vars2D), list);
   fi;
   numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
@@ -306,7 +306,7 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string)
   # assign all conics to the first event
   cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
   rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars2D[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
 
   writer := Object(SamplePointsWriter, midpoint, path, prefix);
@@ -316,10 +316,10 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string)
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars, writer'], numnodes=n,
+    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer'], numnodes=n,
                  printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars, writer);
+    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars2D, writer);
   fi;
 end proc:
 
