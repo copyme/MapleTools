@@ -101,17 +101,20 @@ end proc:
 # Output: Real
 #   A list of real algebraic numbers and indexes of conics: [ RealAlgebraicNumber, [index]].
 ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars2D::list)
-  local out := [], s;
+  local out := [], s, factored, sqrFree;
   s:=proc(i::integer, vars2D::list)
     local rf, rootsF;
     local numbers := [], asy:
      asy := IsAsymptotic2D(Q2D2[i], vars2D[-1]);
      if not type(asy, constant) then
-       rootsF := RootFinding:-Isolate(asy, vars2D[1], output='interval');
-       for rf in rootsF do
-         numbers:=[op(numbers), [Object(RealAlgebraicNumber, asy, op(rf)[2][1],
-         op(rf)[2][2]), [i]]];
-       od:
+       factored := factors(asy)[2,..,1];
+       for sqrFree in factored do
+         rootsF := RootFinding:-Isolate(sqrFree, vars2D[1], output='interval');
+         for rf in rootsF do
+           numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+           op(rf)[2][2]), [i]]];
+         od;
+       od;
      fi:
     return numbers;
   end proc:
