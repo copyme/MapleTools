@@ -419,7 +419,7 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
   
   # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
-  if not StringTools:-Has(kernelopts(version), "Maple 2016") then
+  if not StringTools:-Has(kernelopts(version), "Maple 2016") and upperbound(numbers) <> 0 then
       numbers := sort(numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
