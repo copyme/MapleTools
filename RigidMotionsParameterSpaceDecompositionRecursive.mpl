@@ -151,10 +151,10 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
     od;
   od;
   ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2, vars2D)]));
-  
-  # In maple 2015.2 there is a bug which causes: stack limit reached while sorting an empty Array
-  if upperbound(numbers) <> 0 then
-    numbers := sort(numbers, 
+
+# In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
+  if not StringTools:-Has(kernelopts(version), "Maple 2016") then
+      numbers := sort(numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
                                return true:
@@ -162,8 +162,18 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
                                return false:
                              fi:
                            end proc
-                  ):
-  fi:
+                  );
+  else
+      sort['inplace'](numbers, 
+                           proc( l, r ) 
+                             if Compare( l[1], r[1] ) = -1 then
+                               return true:
+                             else 
+                               return false:
+                             fi:
+                           end proc
+                  );
+  fi;
   return numbers;
 end proc:
 
