@@ -429,7 +429,7 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
                              fi:
                            end proc
                   );
-  else
+  elif StringTools:-Has(kernelopts(version), "Maple 2016") then
       sort['inplace'](numbers, 
                            proc( l, r ) 
                              if Compare( l[1], r[1] ) = -1 then
