@@ -547,6 +547,25 @@ end proc:
 # Output:
 #   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
 #   thread during computations.
+
+
+
+# Procedure: ComputeSamplePoints
+#   Computes sample points for rotational part of rigid motions using the grid framework
+#
+#
+# Parameters:
+#   variables  - list of variables in which the problem is expressed
+#   pathP      - directory in which the output is going to be saved
+#   prefixP    - files' name prefix
+#   nType      - neighborhood type: N1, N2 or N3.
+#   kRange     - range of grid lines passed as a list
+#   threshold  - the lower bound on number of conics for which we should not use grid framework 
+#   nodes      - number of nodes used in the parallel computations
+# Output:
+#   The output file(s) are saved into a files: path/prefix(id).tsv
+
+
 LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
                                          nType::string, kRange::list, treshold::integer, nodes:=20) 
   local numbers, firstEvent, R, rootTmp: 
