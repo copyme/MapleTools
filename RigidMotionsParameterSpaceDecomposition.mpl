@@ -529,7 +529,7 @@ ParallelComputeSamplePoints := proc ()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, false, vars, path, prefix, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, path, prefix, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -567,9 +567,10 @@ end proc:
 
 
 LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
-                                         nType::string, kRange::list, treshold::integer, nodes:=20) 
+                                         nType::string, kRange::list, treshold::integer,
+                                         gridP::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp: 
-  global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP; 
+  global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP, grid := gridP; 
   kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(vars):
@@ -586,14 +587,19 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
-  # The first cluster is heavy so we compute it separately;
-  skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix); 
-  # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-  # writing to a file from a node. It seems that while fprintf is called it also calls printf
-  # which is a default printer function. Therefore, data are returned to node of ID 0. 
-  Grid:-Launch(ParallelComputeSamplePoints,
-               imports = ['Q, cluster, skipped, vars, path, prefix'], numnodes=nodes,
-               printer=proc(x) return NULL: end proc):
+  if grid and nodes > 1 then
+    # The first cluster is heavy so we compute it separately;
+    skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix); 
+    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
+    # writing to a file from a node. It seems that while fprintf is called it also calls printf
+    # which is a default printer function. Therefore, data are returned to node of ID 0. 
+    Grid:-Launch(ParallelComputeSamplePoints,
+               imports = ['Q, cluster, skipped, vars, path, prefix, grid'], numnodes=nodes,
+               printer=proc(x) return NULL: end proc);
+  else
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, id, false, vars, path, prefix);             
+  fi;
+
 end proc:
 
 #end module:
