@@ -597,7 +597,7 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
                imports = ['Q, cluster, skipped, vars, path, prefix, grid'], numnodes=nodes,
                printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, id, false, vars, path, prefix);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, path, prefix);             
   fi;
 
 end proc:
