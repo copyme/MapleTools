@@ -569,7 +569,7 @@ end proc:
 LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
                                          nType::string, kRange::list, treshold::integer,
                                          gridP::boolean, nodes:=20) 
-  local numbers, firstEvent, R, rootTmp: 
+  local numbers, firstEvent, R, rootTmp, db, i: 
   global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP, grid := gridP; 
   kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
@@ -577,9 +577,18 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(vars)};
+
+  db :=Object(ComputationRegister,"test.db");
+  for i from 1 to nops(Q) do
+    InsertQuadric(db, i, Q[i]);
+  od;
+
   numbers := ComputeEventsAlgebraicNumbers(Q, vars):
   numbers := convert(numbers, list):
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  #Insert events into the register
+  Threads:-Map(proc(x) InsertEvent(db, x[1], x[2]) end proc, numbers); 
+  done;
   cluster := ClusterEvents(numbers):
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:

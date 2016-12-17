@@ -1,38 +1,69 @@
-module SamplePointsWriter()
+module ComputationRegister()
   option object;
 
-  local midpoint::rational;
-  local path::string;
-  local prefix::string;
-  export ModuleCopy::static := proc( self::SamplePointsWriter,
-                                     proto::SamplePointsWriter,
-                                     midpoint::rational,
-                                     path::string,
-                                     prefix::string, $ )
+  local connection;
+  export ModuleCopy::static := proc( self::ComputationRegister,
+                                     proto::ComputationRegister,
+                                     dbPath::string, $ )
+  local fileStatus := false;
     if _passed = 2 then
-      self:-midpoint := proto:-midpoint;
-      self:-path := proto:-path;
-      self:-prefix := proto:-prefix;
+      self:-connection := proto:-connection;
     else
-      self:-midpoint := midpoint;
-      self:-path := path;
-      self:-prefix := prefix;
+      fileStatus := FileTools:-Exists(dbPath);
+      self:-connection := Database[SQLite]:-Open(dbPath);
+      if not fileStatus then
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE RealAlgebraicNumber (ID INTEGER PRIMARY" ||    
+        " KEY AUTOINCREMENT UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR TEXT NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE Quadric (ID PRIMARY KEY NOT NULL UNIQUE, "
+        || "polynom TEXT NOT NULL UNIQUE);");
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE Events (RANumID INTEGER REFERENCES " ||
+        "RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, QuadID INTEGER " ||
+        "REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
+      fi;
     fi;
 
     return self;
   end proc;
 
-  export ModulePrint::static := proc( self::SamplePointsWriter )
-    nprintf("(midpoint: '%a', path: '%a', prefix: '%a')", self:-midpoint, self:-path, self:-prefix);
-  end proc:
+  export ModulePrint::static := proc( self::ComputationRegister )
+    print(self:-connection);
+  end proc;
 
-  export Write::static := proc( self::SamplePointsWriter, samplePoints, id )
-    local fileID, midpoint := self:-midpoint;
-    if nops(samplePoints) <> 0 then
-      fileID := fopen(sprintf("%s/%s%a.tsv", self:-path, self:-prefix, id), APPEND, TEXT):
-      writedata(fileID, samplePoints, string, proc (f, x) fprintf(f, "%a\t%a\t%a", midpoint, op(x)) end proc):
-      fclose(fileID):
-    fi:
-  end proc:
+
+  export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric(ID, polynom) "
+                                            || "VALUES (?, ?)");
+    Database[SQLite]:-Bind(stmt, 1, id);
+    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
+    Database[SQLite]:-Step(stmt);
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+  export InsertEvent::static := proc(self::ComputationRegister, num::RealAlgebraicNumber,
+                                     quadrics::list)
+    local idNum::integer;
+    local x::integer;
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO RealAlgebraicNumber(polynom,"
+                                             || " IntervalL, IntervalR) VALUES (?, ?, ?)");
+    Database[SQLite]:-Bind(stmt, 1, sprintf("%a", GetPolynomial(num)));
+    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetInterval(num)[1]));
+    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[2]));
+    Database[SQLite]:-Step(stmt);
+    Database[SQLite]:-Finalize(stmt);
+    stmt:=Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(ID) from RealAlgebraicNumber;");
+    Database[SQLite]:-Step(stmt);
+    idNum := Database[SQLite]:-FetchRow(stmt, valuetype=["integer"])[1]; 
+    Database[SQLite]:-Finalize(stmt);
+
+    #insert quadrics for event
+    for x in quadrics do
+      stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Events(RANumID, QuadID) " ||
+                                     "VALUES(?, ?)");
+      Database[SQLite]:-Bind(stmt, 1, idNum);
+      Database[SQLite]:-Bind(stmt, 2, x);
+      Database[SQLite]:-Step(stmt);
+      Database[SQLite]:-Finalize(stmt);
+    od;
+  end proc;
 
 end module;
