@@ -32,7 +32,7 @@ module ComputationRegister()
 
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric(ID, polynom) "
-                                            || "VALUES (?, ?)");
+                                            || "VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
     Database[SQLite]:-Step(stmt);
@@ -44,7 +44,7 @@ module ComputationRegister()
     local idNum::integer;
     local x::integer;
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO RealAlgebraicNumber(polynom,"
-                                             || " IntervalL, IntervalR) VALUES (?, ?, ?)");
+                                             || " IntervalL, IntervalR) VALUES (?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, sprintf("%a", GetPolynomial(num)));
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetInterval(num)[1]));
     Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[2]));
@@ -58,12 +58,12 @@ module ComputationRegister()
     #insert quadrics for event
     for x in quadrics do
       stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Events(RANumID, QuadID) " ||
-                                     "VALUES(?, ?)");
+                                     "VALUES(?, ?);");
       Database[SQLite]:-Bind(stmt, 1, idNum);
       Database[SQLite]:-Bind(stmt, 2, x);
       Database[SQLite]:-Step(stmt);
-      Database[SQLite]:-Finalize(stmt);
     od;
+      Database[SQLite]:-Finalize(stmt);
   end proc;
 
 end module;

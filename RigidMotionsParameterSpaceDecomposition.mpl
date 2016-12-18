@@ -587,7 +587,7 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
   numbers := convert(numbers, list):
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   #Insert events into the register
-  Threads:-Map(proc(x) InsertEvent(db, x[1], x[2]) end proc, numbers); 
+  map(proc(x) InsertEvent(db, x[1], x[2]) end proc, numbers); 
   done;
   cluster := ClusterEvents(numbers):
   # assign all quadrics to the second event
