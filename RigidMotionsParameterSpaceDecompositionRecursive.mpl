@@ -216,7 +216,7 @@ ParallelComputeSamplePoints2D := proc ()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster2D)-1)/numNodes);
-  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, vars2D, writer);
+  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, vars2D, writer, db);
   Grid:-Barrier();
 end proc:
 
@@ -238,7 +238,7 @@ end proc:
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
 ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer, id::integer,
-                              vars2D::list, writer)
+                              vars2D::list, writer, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
   local disjointEvent::list, oneD::list, oneDNeg::list;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
@@ -275,7 +275,8 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::intege
                                                        GetInterval(disjointEvent[2])[1])/2]]];
       od:
       samplePoints := [op(samplePoints), [[midpoint, GetInterval(oneD[-1])[2] + 1/2]]];
-      Write(writer, samplePoints, id);
+      InsertSamplePoint(db, [1,2,3]);
+      #Write(writer, samplePoints, id);
     fi:
  od:
  return NULL;
@@ -299,9 +300,10 @@ end proc:
 # Output:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
-grid::boolean, id::integer, variables::list, path::string, prefix::string) 
+grid::boolean, id::integer, variables::list, path::string, prefix::string, db2::ComputationRegister) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
   global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars2D := variables;
+  global db := db2;
   if grid and nops(s) > 20 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars2D), list);
   else
@@ -329,10 +331,10 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string)
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer'], numnodes=n,
+    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer, db'], numnodes=n,
                  printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars2D, writer);
+    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars2D, writer, db);
   fi;
 end proc:
 
