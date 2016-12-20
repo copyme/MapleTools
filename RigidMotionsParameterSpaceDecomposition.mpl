@@ -487,7 +487,7 @@ local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
    else
      LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], path, prefix, db);
    fi;
-   SynchornizeSamplePoints(db);
+   #SynchronizeSamplePoints(db);
    InsertSkippedCluster(db, i);
   end do;
   return NULL;
