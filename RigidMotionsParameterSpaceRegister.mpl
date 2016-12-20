@@ -9,16 +9,18 @@ module ComputationRegister()
     if _passed = 2 then
       self:-connection := proto:-connection;
     else
-      fileStatus := FileTools:-Exists(dbPath);
-      self:-connection := Database[SQLite]:-Open(":memory:");
-      Database[SQLite]:-Attach(self:-connection, dbPath, "outDB");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = OFF");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = MEMORY");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE RealAlgebraicNumber (ID INTEGER PRIMARY" ||    
+      if not FileTools:-Exists(dbPath) then
+        error "There is no database %1.", dbPath;
+      fi;
+      self:-connection := Database[SQLite]:-Open(dbPath, create=false);
+      Database[SQLite]:-Attach(self:-connection, ":memory:", "cacheDB");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.RealAlgebraicNumber (ID INTEGER PRIMARY" ||    
       " KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR TEXT NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE Quadric (ID PRIMARY KEY NOT NULL UNIQUE, "
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY NOT NULL UNIQUE, "
       || "polynom TEXT NOT NULL UNIQUE);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE Events (RANumID INTEGER " ||
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
       "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
       "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
       fi;
@@ -32,18 +34,18 @@ module ComputationRegister()
 
 
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric(ID, polynom) "
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.Quadric(ID, polynom) "
                                             || "VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
-    Database[SQLite]:-Step(stmt);
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
 
   export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                     num::RealAlgebraicNumber, quadrics::list)
     local x::integer;
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO RealAlgebraicNumber(polynom,"
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.RealAlgebraicNumber(polynom,"
                                              || " IntervalL, IntervalR) VALUES (?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, sprintf("%a", GetPolynomial(num)));
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetInterval(num)[1]));
@@ -52,20 +54,37 @@ module ComputationRegister()
     Database[SQLite]:-Finalize(stmt);
     #insert quadrics for event
     for x in quadrics do
-      stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Events(RANumID, QuadID) " ||
+      stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.Events(RANumID, QuadID) " ||
                                      "VALUES(?, ?);");
       Database[SQLite]:-Bind(stmt, 1, idNum);
       Database[SQLite]:-Bind(stmt, 2, x);
-      Database[SQLite]:-Step(stmt);
+      while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
       Database[SQLite]:-Finalize(stmt);
     od;
   end proc;
 
-  export Synchronize::static := proc(self::ComputationRegister)
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO outDB.RealAlgebraicNumber SELECT * FROM " ||
-                                "RealAlgebraicNumber;");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO outDB.Quadric SELECT * FROM Quadric;");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO outDB.Events SELECT * FROM Events;");
+  export SynchronizeAlgebraicNumbers::static := proc(self::ComputationRegister)
+      Database[SQLite]:-Execute(self:-connection, "INSERT INTO RealAlgebraicNumber SELECT * FROM " ||
+                                "cacheDB.RealAlgebraicNumber;");
+      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric;");
+      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events;");
   end proc;
 
+  export InsertSkippedCluster::static := proc(self::ComputationRegister, id::integer)
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SkippedCluster " || 
+                                          "(clusterID) VALUES (?);");
+    Database[SQLite]:-Bind(stmt, 1, id);    
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+  export IsertSampePoint::static := proc(self::ComputationRegister, samp::list)
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SamplePoint " || 
+                                          "(A, B, C) VALUES (?, ?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, 1);    
+    Database[SQLite]:-Bind(stmt, 2, 2);    
+    Database[SQLite]:-Bind(stmt, 3, 3);    
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
 end module;

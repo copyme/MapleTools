@@ -462,7 +462,7 @@ end proc:
 #  See  ComputeSamplePoints2D
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer,
                              grid::boolean, vars::list, path::string,
-                             prefix::string, skipped::list:=[]) 
+                             prefix::string, db::ComputationRegister, skipped::list:=[]) 
 local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
@@ -481,12 +481,13 @@ local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
     # never call eval with sets!!
     sys := eval(convert(sys, list), vars[1] = midpoint);
 
-   if grid then 
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], path, prefix);
+   if not grid then 
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], path,
+     prefix, db);
    else
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], path, prefix);
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], path, prefix, db);
    fi;
-    
+   InsertSkippedCluster(db, i);
   end do;
   return NULL;
 end proc:
@@ -505,14 +506,14 @@ end proc:
 # Output:
 #  See  ComputeSamplePoints2D.
 CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer, vars::list, path::string,
-                                   prefix::string) 
+                                   prefix::string, db::ComputationRegister) 
   local i, card;
   local skipped := [];
   for i from 1 to nops(cluster) -1 do
    card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
    if card >= treshold then
-      skipped := [op(skipped),i];
-     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, path, prefix);
+     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, path, prefix, db);
+     skipped := [op(skipped),i];
    fi
   od;
   return skipped;
@@ -525,11 +526,12 @@ end proc;
 #
 ParallelComputeSamplePoints := proc () 
   local me, numNodes, n;
+  local db:=Object(ComputationRegister,"test.db");
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, path, prefix, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, path, prefix, db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -569,8 +571,10 @@ end proc:
 LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
                                          nType::string, kRange::list, treshold::integer,
                                          gridP::boolean, nodes:=20) 
-  local numbers, firstEvent, R, rootTmp, db, i: 
+  local numbers, firstEvent, R, rootTmp, i;
   global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP, grid := gridP; 
+  local db:=Object(ComputationRegister,"test.db");
+
   kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(vars):
@@ -578,7 +582,6 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
        ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(vars)};
 
-  db :=Object(ComputationRegister,"test.db");
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
@@ -587,8 +590,10 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
   numbers := convert(numbers, list):
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   #Insert events into the register
-  map(proc(x) InsertEvent(db, x[1], x[2]) end proc, numbers); 
-  done;
+  for i from 1 to nops(numbers) do
+    InsertEvent(db, i, numbers[i][1], numbers[i][2])
+  od;
+  SynchronizeAlgebraicNumbers(db);
   cluster := ClusterEvents(numbers):
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
@@ -598,15 +603,17 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
   cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
   if grid and nodes > 1 then
     # The first cluster is heavy so we compute it separately;
-    skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix); 
+    skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix, db); 
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
+    #Grid:-Launch(ParallelComputeSamplePoints,
+               #imports = ['Q, cluster, skipped, vars, path, prefix, grid, db'], numnodes=nodes,
+               #printer=proc(x) return NULL: end proc);
     Grid:-Launch(ParallelComputeSamplePoints,
-               imports = ['Q, cluster, skipped, vars, path, prefix, grid'], numnodes=nodes,
-               printer=proc(x) return NULL: end proc);
+               imports = ['Q, cluster, skipped, vars, path, prefix, grid'], numnodes=nodes);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, path, prefix);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, path, prefix, db, skipped);             
   fi;
 
 end proc:
