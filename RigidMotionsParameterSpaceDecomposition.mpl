@@ -461,8 +461,7 @@ end proc:
 # Output:
 #  See  ComputeSamplePoints2D
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer,
-                             grid::boolean, vars::list, path::string,
-                             prefix::string, db::ComputationRegister, skipped::list:=[]) 
+                             grid::boolean, vars::list, db::ComputationRegister, skipped::list:=[]) 
 local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
@@ -482,10 +481,9 @@ local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
     sys := eval(convert(sys, list), vars[1] = midpoint);
 
    if not grid then 
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], path,
-     prefix, db);
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], db);
    else
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], path, prefix, db);
+     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], db);
    fi;
    SynchronizeSamplePoints(db);
    InsertSkippedCluster(db, i);
@@ -525,14 +523,15 @@ end proc;
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 #
-ParallelComputeSamplePoints := proc () 
+ParallelComputeSamplePoints := proc(Q::set, cluster::list, skipped::list, vars::list, grid::boolean,
+                                     dbPath::string) 
   local me, numNodes, n;
-  local db:=Object(ComputationRegister,"test.db");
+  local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, path, prefix, db, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -569,14 +568,12 @@ end proc:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 
 
-LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP::string,
-                                         nType::string, kRange::list, treshold::integer,
-                                         gridP::boolean, nodes:=20) 
+LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
+                                         kRange::list, treshold::integer, gridP::boolean, nodes:=2) 
   local numbers, firstEvent, R, rootTmp, i;
-  global Q, cluster, skipped, vars := variables, path := pathP, prefix := prefixP, grid := gridP; 
-  local db:=Object(ComputationRegister,"test.db");
+  local Q, cluster, skipped, db:=Object(ComputationRegister,"test.db");
 
-  kernelopts(printbytes=false):
+  kernelopts(printbytes=false);
   Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(vars):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
@@ -612,9 +609,10 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, pathP::string, prefixP
                #imports = ['Q, cluster, skipped, vars, path, prefix, grid, db'], numnodes=nodes,
                #printer=proc(x) return NULL: end proc);
     Grid:-Launch(ParallelComputeSamplePoints,
-               imports = ['Q, cluster, skipped, vars, path, prefix, grid'], numnodes=nodes);
+                 imports = [Q=Q, cluster=cluster, skipped=skipped, vars=variables, grid=grid,
+                 dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, path, prefix, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, db, skipped);             
   fi;
 
 end proc:
