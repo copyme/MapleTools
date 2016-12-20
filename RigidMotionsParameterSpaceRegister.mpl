@@ -100,11 +100,13 @@ module ComputationRegister()
   end proc;
 
   export SynchronizeSamplePoints::static := proc(self::ComputationRegister)
-    Database[SQLite]:-Execute(self:-connection, "INSERT INTO SamplePoint SELECT * FROM " ||
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePoint SELECT * FROM " ||
                                                 "cacheDB.SamplePoint " ||
                                                 "WHERE NOT EXISTS(SELECT 1 FROM SamplePoint AS s, " ||
                                                 "cacheDB.SamplePoint AS sc WHERE s.A = sc.A AND " ||
                                                 "s.B = sc.B AND s.C = sc.C);");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
   end proc;
 
 end module;
