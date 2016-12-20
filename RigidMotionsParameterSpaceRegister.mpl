@@ -73,11 +73,11 @@ module ComputationRegister()
                                 "rc.INTERVALL AND r.INTERVALR = rc.INTERVALR);");
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
                                                   " WHERE NOT EXISTS(SELECT 1 FROM Quadric AS Q, " ||
-                                                  "cache.Quadric qc WHERE q.ID = qc.ID AND q.POLYNOM = " ||
+                                                  "cacheDB.Quadric qc WHERE q.ID = qc.ID AND q.POLYNOM = " ||
                                                   "qc.POLYNOM);");
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
                                                   "WHERE NOT EXISTS( SELECT 1 FROM Events AS E, " ||
-                                                  "cache.Events AS ev WHERE e.RANUMID = ev.RANUMID AND " ||
+                                                  "cacheDB.Events AS ev WHERE e.RANUMID = ev.RANUMID AND " ||
                                                   "e.QUADID = ev.QUADID);");
   end proc;
 
@@ -102,7 +102,7 @@ module ComputationRegister()
   export SynchornizeSamplePoints::static := proc(self::ComputationRegister)
     Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.SamplePoint " ||
                                                 "WHERE NOT EXISTS( SELECT 1 FROM SamplePoint AS S " ||
-                                                "cache.SamplePoint AS sc WHERE s.A = sc.A " ||
+                                                "cacheDB.SamplePoint AS sc WHERE s.A = sc.A " ||
                                                 "s.B = sc.B AND s.C = sc.C);");
   end proc;
 
