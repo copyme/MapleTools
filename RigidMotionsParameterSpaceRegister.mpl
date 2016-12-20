@@ -98,9 +98,9 @@ module ComputationRegister()
   export InsertSamplePoint::static := proc(self::ComputationRegister, samp::list)
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cacheDB.SamplePoint " || 
                                           "(A, B, C) VALUES (?, ?, ?);");
-    Database[SQLite]:-Bind(stmt, 1, 1);    
-    Database[SQLite]:-Bind(stmt, 2, 2);    
-    Database[SQLite]:-Bind(stmt, 3, 3);    
+    Database[SQLite]:-Bind(stmt, 1, samp[1]);    
+    Database[SQLite]:-Bind(stmt, 2, samp[2]);    
+    Database[SQLite]:-Bind(stmt, 3, samp[3]);    
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;

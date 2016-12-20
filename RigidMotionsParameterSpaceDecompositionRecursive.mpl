@@ -210,13 +210,13 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 #
-ParallelComputeSamplePoints2D := proc(database::ComputationRegister) 
+ParallelComputeSamplePoints2D := proc(Q, cluster, vars, amid::rational, database::ComputationRegister) 
   local me, numNodes, n;
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster2D)-1)/numNodes);
-  ComputeSamplePoints2D(Q2D, cluster2D, me*n+1,(me+1)*n, me, vars2D, writer, db);
+  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, me, vars, amid, db);
   Grid:-Barrier();
 end proc:
 
@@ -238,7 +238,7 @@ end proc:
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
 ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer, id::integer,
-                              vars2D::list, writer, db::ComputationRegister)
+                              vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
   local disjointEvent::list, oneD::list, oneDNeg::list;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
@@ -271,12 +271,11 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::intege
       samplePoints := [];
       for j from 1 to upperbound(oneD) - 1 do
         disjointEvent := DisjointRanges(oneD[j],oneD[j+1]);
-        samplePoints := [op(samplePoints), [[midpoint, (GetInterval(disjointEvent[1])[2] +
-                                                       GetInterval(disjointEvent[2])[1])/2]]];
+        samplePoints := [op(samplePoints), [amid, midpoint, (GetInterval(disjointEvent[1])[2] +
+                                                       GetInterval(disjointEvent[2])[1])/2]];
       od:
-      samplePoints := [op(samplePoints), [[midpoint, GetInterval(oneD[-1])[2] + 1/2]]];
-      InsertSamplePoint(db, [1,2,3]);
-      #Write(writer, samplePoints, id);
+      samplePoints := [op(samplePoints), [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]];
+      map(proc(x) InsertSamplePoint(db, x) end proc, samplePoints);
     fi:
  od:
  return NULL;
@@ -302,7 +301,7 @@ end proc:
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
 grid::boolean, id::integer, variables::list, path::string, prefix::string, db::ComputationRegister) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
-  global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars2D := variables;
+  local Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D;
   if grid and nops(s) > 20 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars2D), list);
   else
@@ -323,18 +322,15 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string, db::C
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars2D[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
 
-  writer := Object(SamplePointsWriter, midpoint, path, prefix);
-
   # The first cluster2D is heavy so we compute it separately;
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer',
-    database=db], numnodes=n,
-                 printer=proc(x) return NULL: end proc);
+    Grid:-Launch(ParallelComputeSamplePoints2D, imports=[Q=Q2D, cluster=cluster2D, vars=variables,
+    amid=midpoint, database=db], numnodes=n, printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars2D, writer, db);
+    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, variables, midpoint, db);
   fi;
 end proc:
 
