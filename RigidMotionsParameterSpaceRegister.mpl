@@ -68,17 +68,17 @@ module ComputationRegister()
   export SynchronizeAlgebraicNumbers::static := proc(self::ComputationRegister)
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO RealAlgebraicNumber SELECT * FROM " ||
                                 "cacheDB.RealAlgebraicNumber WHERE NOT EXISTS(SELECT 1 FROM " ||
-                                "RealAlgebraicNumber, cacheDB.RealAlgebraicNumber AS rc WHERE ID = " ||
-                                "rc.ID AND POLYNOM = rc.POLYNOM AND INTERVALL = " ||
-                                "rc.INTERVALL AND INTERVALR = rc.INTERVALR);");
+                                "RealAlgebraicNumber AS R, cacheDB.RealAlgebraicNumber AS rc WHERE r.ID = " ||
+                                "rc.ID AND r.POLYNOM = rc.POLYNOM AND r.INTERVALL = " ||
+                                "rc.INTERVALL AND r.INTERVALR = rc.INTERVALR);");
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
-                                                  " WHERE NOT EXISTS(SELECT 1 FROM Quadric, " ||
-                                                  "cache.Quadric qc WHERE ID = qc.ID AND POLYNOM = " ||
+                                                  " WHERE NOT EXISTS(SELECT 1 FROM Quadric AS Q, " ||
+                                                  "cache.Quadric qc WHERE q.ID = qc.ID AND q.POLYNOM = " ||
                                                   "qc.POLYNOM);");
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
-                                                  "WHERE NOT EXISTS( SELECT 1 FROM Events, " ||
-                                                  "cache.Events AS ev WHERE RANUMID = ev.RANUMID AND " ||
-                                                  "QUADID = ev.QUADID);");
+                                                  "WHERE NOT EXISTS( SELECT 1 FROM Events AS E, " ||
+                                                  "cache.Events AS ev WHERE e.RANUMID = ev.RANUMID AND " ||
+                                                  "e.QUADID = ev.QUADID);");
   end proc;
 
   export InsertSkippedCluster::static := proc(self::ComputationRegister, id::integer)
@@ -101,9 +101,9 @@ module ComputationRegister()
 
   export SynchornizeSamplePoints::static := proc(self::ComputationRegister)
     Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.SamplePoint " ||
-                                                "WHERE NOT EXISTS( SELECT 1 FROM SamplePoint " ||
-                                                "cache.SamplePoint AS sc WHERE A = sc.A " ||
-                                                "B = sc.B AND C = sc.C);");
+                                                "WHERE NOT EXISTS( SELECT 1 FROM SamplePoint AS S " ||
+                                                "cache.SamplePoint AS sc WHERE s.A = sc.A " ||
+                                                "s.B = sc.B AND s.C = sc.C);");
   end proc;
 
 end module;
