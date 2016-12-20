@@ -23,8 +23,8 @@ module ComputationRegister()
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
       "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
       "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (ID INTEGER PRIMARY KEY" ||
-      " AUTOINCREMENT, A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (" ||
+      "A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
       fi;
 
     return self;
