@@ -23,6 +23,8 @@ module ComputationRegister()
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
       "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
       "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE SamplePoint (ID INTEGER PRIMARY KEY" ||
+      "AUTOINCREMENT, A DOUBLE NOT NULL, B DOUBLE NOT NULL, C DOUBLE NOT NULL);");
       fi;
 
     return self;
@@ -34,7 +36,7 @@ module ComputationRegister()
 
 
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.Quadric(ID, polynom) "
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cacheDB.Quadric(ID, polynom) "
                                             || "VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
@@ -45,7 +47,7 @@ module ComputationRegister()
   export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                     num::RealAlgebraicNumber, quadrics::list)
     local x::integer;
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.RealAlgebraicNumber(polynom,"
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cacheDB.RealAlgebraicNumber(polynom,"
                                              || " IntervalL, IntervalR) VALUES (?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, sprintf("%a", GetPolynomial(num)));
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetInterval(num)[1]));
@@ -65,21 +67,30 @@ module ComputationRegister()
 
   export SynchronizeAlgebraicNumbers::static := proc(self::ComputationRegister)
       Database[SQLite]:-Execute(self:-connection, "INSERT INTO RealAlgebraicNumber SELECT * FROM " ||
-                                "cacheDB.RealAlgebraicNumber;");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric;");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events;");
+                                "cacheDB.RealAlgebraicNumber WHERE NOT EXISTS(SELECT 1 FROM " ||
+                                "RealAlgebraicNumber, cacheDB.RealAlgebraicNumber AS rc WHERE ID = " ||
+                                "rc.ID AND POLYNOM = rc.POLYNOM AND INTERVALL = " ||
+                                "rc.INTERVALL AND INTERVALR = rc.INTERVALR);");
+      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
+                                                  " WHERE NOT EXISTS(SELECT 1 FROM Quadric, " ||
+                                                  "cache.Quadric qc WHERE ID = qc.ID AND POLYNOM = " ||
+                                                  "qc.POLYNOM);");
+      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
+                                                  "WHERE NOT EXISTS( SELECT 1 FROM Events, " ||
+                                                  "cache.Events AS ev WHERE RANUMID = ev.RANUMID AND " ||
+                                                  "QUADID = ev.QUADID);");
   end proc;
 
   export InsertSkippedCluster::static := proc(self::ComputationRegister, id::integer)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SkippedCluster " || 
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO SkippedCluster " || 
                                           "(clusterID) VALUES (?);");
     Database[SQLite]:-Bind(stmt, 1, id);    
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
 
-  export IsertSampePoint::static := proc(self::ComputationRegister, samp::list)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SamplePoint " || 
+  export InsertSampePoint::static := proc(self::ComputationRegister, samp::list)
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cache.SamplePoint " || 
                                           "(A, B, C) VALUES (?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, 1);    
     Database[SQLite]:-Bind(stmt, 2, 2);    
@@ -87,4 +98,12 @@ module ComputationRegister()
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
+
+  export SynchornizeSamplePoints::static := proc(self::ComputationRegister)
+    Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.SamplePoint " ||
+                                                "WHERE NOT EXISTS( SELECT 1 FROM SamplePoint " ||
+                                                "cache.SamplePoint AS sc WHERE A = sc.A " ||
+                                                "B = sc.B AND C = sc.C);");
+  end proc;
+
 end module;
