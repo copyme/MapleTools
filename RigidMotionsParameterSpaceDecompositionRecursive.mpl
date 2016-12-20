@@ -216,7 +216,7 @@ ParallelComputeSamplePoints2D := proc(Q, cluster, vars, amid::rational, database
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster2D)-1)/numNodes);
-  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, me, vars, amid, db);
+  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, vars, amid, db);
   Grid:-Barrier();
 end proc:
 
@@ -229,7 +229,6 @@ end proc:
 #                        conics.
 #   first              - integer value which indicates a first cluster to proceed.
 #   last               - integer value which indicates a last cluster to proceed.
-#   id                 - id which indicates a node/file
 #   vars2D               - list of variables in which conics are expressed
 #   writer             - an object of class SamplePointsWriter used to save sample points
 #
@@ -237,7 +236,7 @@ end proc:
 #   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
 #   positive since other variation are same up to some similarities (reflections and rotations).
 #
-ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer, id::integer,
+ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
   local disjointEvent::list, oneD::list, oneDNeg::list;
@@ -292,45 +291,44 @@ end proc:
 #   nodes     - number of nodes used in the parallel computations
 #   grid      - a control variable for parallel computations. If true and additional conditions on
 #               the size of the problem are fullfiled the problem is solved in the grid framework.
-#   id        - id of a file used when grid computations are set to false
 #   variables - list of variables in which the problem is expressed
 #   path      - directory in which the output is going to be saved
 #   prefix    - file name prefix
 # Output:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
-grid::boolean, id::integer, variables::list, path::string, prefix::string, db::ComputationRegister) 
+                                           grid::boolean, variables::list, db::ComputationRegister) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
-  local Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D;
+  local Q := ListTools:-MakeUnique([op(variables),op(s)]), cluster;
   if grid and nops(s) > 20 then
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, variables), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q, true, variables), list);
   else
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, variables), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q, false, variables), list);
   fi;
   numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
     return NULL;
   fi;
-  cluster2D := ClusterEvents(numbers):
-  if upperbound(cluster2D) < nodes then
-    n := upperbound(cluster2D);
+  cluster := ClusterEvents(numbers):
+  if upperbound(cluster) < nodes then
+    n := upperbound(cluster);
   fi;
 
   # assign all conics to the first event
-  cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
-  rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
+  cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
+  rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
-  cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
+  cluster := [op(cluster), [[firstEvent, cluster[-1][1][2]]]];
 
-  # The first cluster2D is heavy so we compute it separately;
+  # The first cluster is heavy so we compute it separately;
   # We define printer as a procedure which returns NULL to avoid a memory leak problem while
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports=[Q=Q2D, cluster=cluster2D, vars=variables,
+    Grid:-Launch(ParallelComputeSamplePoints2D, imports=[Q=Q, cluster=cluster, vars=variables,
     amid=midpoint, database=db], numnodes=n, printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, variables, midpoint, db);
+    ComputeSamplePoints2D(Q, cluster, 1, nops(cluster) - 1, variables, midpoint, db);
   fi;
 end proc:
 

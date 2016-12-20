@@ -460,9 +460,9 @@ end proc:
 #
 # Output:
 #  See  ComputeSamplePoints2D
-ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, id::integer,
+ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, 
                              grid::boolean, vars::list, db::ComputationRegister, skipped::list:=[]) 
-local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
+local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
@@ -479,45 +479,13 @@ local i, x, midpoint, sys, samplePoints, fileID, disjointEvent:=[]:
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
     sys := eval(convert(sys, list), vars[1] = midpoint);
-
-   if not grid then 
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, Grid:-NumNodes(), true, id, vars[2..], db);
-   else
-     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, id, vars[2..], db);
+    LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
    fi;
    SynchronizeSamplePoints(db);
    InsertSkippedCluster(db, i);
   end do;
   return NULL;
 end proc:
-
-
-# Procedure: ComputeSamplePoints
-#   Computes sample points for rotational part of rigid motions using the grid framework
-#
-#
-# Parameters:
-#   nType      - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange     - a range of planes to consider
-#   vars               - list of variables in which conics are expressed
-#   path      - directory in which the output is going to be saved
-#   prefix    - file name prefix
-# Output:
-#  See  ComputeSamplePoints2D.
-CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer, vars::list,
-                                   db::ComputationRegister) 
-  local i, card;
-  local skipped := [];
-  for i from 1 to nops(cluster) -1 do
-   card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
-   if card >= treshold then
-     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, db);
-     skipped := [op(skipped), i];
-   fi
-  od;
-  return skipped;
-end proc;
-
 
 # Procedure: ParallelComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
@@ -531,7 +499,7 @@ ParallelComputeSamplePoints := proc(Q::set, cluster::list, skipped::list, vars::
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, me, grid, vars, db, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, grid, vars, db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -571,7 +539,7 @@ end proc:
 LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
                                          kRange::list, treshold::integer, grid::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp, i;
-  local Q, cluster, skipped, db:=Object(ComputationRegister, dbPath);
+  local Q, cluster, db:=Object(ComputationRegister, dbPath);
 
   kernelopts(printbytes=false);
   Grid:-Setup("local", numnodes=nodes):
@@ -600,13 +568,11 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
   if grid and nodes > 1 then
-    # The first cluster is heavy so we compute it separately;
-    skipped := CalculateHeavyIntersection(Q, cluster, treshold, variables, path, prefix, db); 
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints,
-                 imports = [Q=Q, cluster=cluster, skipped=skipped, vars=variables, grid=grid,
+                 imports = [Q=Q, cluster=cluster, vars=variables, grid=grid,
                  dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
