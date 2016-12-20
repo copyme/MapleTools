@@ -490,8 +490,7 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 #
-ParallelComputeSamplePoints := proc(Q::set, cluster::list, skipped::list, vars::list, grid::boolean,
-                                     dbPath::string) 
+ParallelComputeSamplePoints := proc(Q::set, cluster::list, skipped::list, vars::list, grid::boolean, dbPath::string) 
   local me, numNodes, n;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
@@ -571,8 +570,8 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints,
-                 imports = [Q=Q, cluster=cluster, vars=variables, grid=grid,
-                 dbPath=dbPath, skipped=[]], numnodes=nodes, printer=proc(x) return NULL: end proc);
+                 imports = [Q=Q, cluster=cluster, skipped=[], vars=variables, grid=grid,
+                 dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
   fi;
