@@ -480,9 +480,8 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
     # never call eval with sets!!
     sys := eval(convert(sys, list), vars[1] = midpoint);
     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
-   fi;
-   SynchronizeSamplePoints(db);
-   InsertSkippedCluster(db, i);
+    SynchronizeSamplePoints(db);
+    InsertSkippedCluster(db, i);
   end do;
   return NULL;
 end proc:
