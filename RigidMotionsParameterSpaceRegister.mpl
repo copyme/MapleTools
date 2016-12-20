@@ -66,19 +66,25 @@ module ComputationRegister()
   end proc;
 
   export SynchronizeAlgebraicNumbers::static := proc(self::ComputationRegister)
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO RealAlgebraicNumber SELECT * FROM " ||
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO RealAlgebraicNumber SELECT * FROM " ||
                                 "cacheDB.RealAlgebraicNumber WHERE NOT EXISTS(SELECT 1 FROM " ||
                                 "RealAlgebraicNumber AS R, cacheDB.RealAlgebraicNumber AS rc WHERE r.ID = " ||
                                 "rc.ID AND r.POLYNOM = rc.POLYNOM AND r.INTERVALL = " ||
                                 "rc.INTERVALL AND r.INTERVALR = rc.INTERVALR);");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+    stmt := Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
                                                   " WHERE NOT EXISTS(SELECT 1 FROM Quadric AS Q, " ||
                                                   "cacheDB.Quadric AS qc WHERE q.ID = qc.ID AND q.POLYNOM = " ||
                                                   "qc.POLYNOM);");
-      Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+    stmt := Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
                                                   "WHERE NOT EXISTS( SELECT 1 FROM Events AS E, " ||
                                                   "cacheDB.Events AS ev WHERE e.RANUMID = ev.RANUMID AND " ||
                                                   "e.QUADID = ev.QUADID);");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
   end proc;
 
   export InsertSkippedCluster::static := proc(self::ComputationRegister, id::integer)
