@@ -210,7 +210,7 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 #
-ParallelComputeSamplePoints2D := proc () 
+ParallelComputeSamplePoints2D := proc(database::ComputationRegister) 
   local me, numNodes, n;
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
@@ -303,7 +303,6 @@ LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::i
 grid::boolean, id::integer, variables::list, path::string, prefix::string, db2::ComputationRegister) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
   global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars2D := variables;
-  global db := db2;
   if grid and nops(s) > 20 then
      numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars2D), list);
   else
@@ -331,7 +330,8 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string, db2::
   # writing to a file from a node. It seems that while fprintf is called it also calls printf
   # which is a default printer function. Therefore, data are returned to node of ID 0. 
   if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer, db'], numnodes=n,
+    Grid:-Launch(ParallelComputeSamplePoints2D, imports = ['Q2D, cluster2D, vars2D, writer',
+    database=db], numnodes=n,
                  printer=proc(x) return NULL: end proc);
   else
     ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, id, vars2D, writer, db);
