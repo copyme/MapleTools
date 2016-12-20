@@ -23,9 +23,8 @@ module ComputationRegister()
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
       "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
       "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (ID INTEGER " ||
-      "PRIMARY KEY AUTOINCREMENT, A_NUM INTEGER NOT NULL, B_NUM INTEGER NOT NULL, C_NUM INTEGER " ||
-      "NOT NULL, A_DENOM INTEGER NOT NULL, B_DENOM INTEGER NOT NULL, C_DENOM INTEGER NOT NULL);");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (ID INTEGER PRIMARY KEY" ||
+      " AUTOINCREMENT, A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
       fi;
 
     return self;
@@ -98,14 +97,10 @@ module ComputationRegister()
 
   export InsertSamplePoint::static := proc(self::ComputationRegister, samp::list)
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cacheDB.SamplePoint " || 
-                                    "(A_NUM, B_NUM, C_NUM, A_DENOM, B_DENOM, C_DENOM) VALUES " ||
-                                    "(?, ?, ?, ?, ?, ?);");
-    Database[SQLite]:-Bind(stmt, 1, numer(samp[1]));    
-    Database[SQLite]:-Bind(stmt, 2, numer(samp[2]));    
-    Database[SQLite]:-Bind(stmt, 3, numer(samp[3]));    
-    Database[SQLite]:-Bind(stmt, 4, denom(samp[1]));    
-    Database[SQLite]:-Bind(stmt, 5, denom(samp[2]));    
-    Database[SQLite]:-Bind(stmt, 6, denom(samp[3]));    
+                                          "(A, B, C) VALUES (?, ?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, sprintf("%a", samp[1]));    
+    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", samp[2]));    
+    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", samp[3]));    
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
@@ -114,10 +109,8 @@ module ComputationRegister()
     local stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePoint SELECT * FROM " ||
                                                 "cacheDB.SamplePoint " ||
                                                 "WHERE NOT EXISTS(SELECT 1 FROM SamplePoint AS s, " ||
-                                                "cacheDB.SamplePoint AS sc WHERE s.A_NUM = sc.A_NUM AND " ||
-                                                "s.B_NUM = sc.B_NUM AND s.C_NUM = sc.C_NUM AND " ||
-                                                "s.A_DENOM = sc.A_DENOM AND s.B_DENOM = sc.B_DENOM" ||
-                                                " AND s.C_DENOM = sc.C_DENOM);");
+                                                "cacheDB.SamplePoint AS sc WHERE s.A = sc.A AND " ||
+                                                "s.B = sc.B AND s.C = sc.C);");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
