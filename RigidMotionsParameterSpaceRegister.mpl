@@ -73,13 +73,13 @@ module ComputationRegister()
                                 "rc.INTERVALL AND r.INTERVALR = rc.INTERVALR);");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
-    stmt := Database[SQLite]:-Execute(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
+    stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO Quadric SELECT * FROM cacheDB.Quadric" ||
                                                   " WHERE NOT EXISTS(SELECT 1 FROM Quadric AS Q, " ||
                                                   "cacheDB.Quadric AS qc WHERE q.ID = qc.ID AND q.POLYNOM = " ||
                                                   "qc.POLYNOM);");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
-    stmt := Database[SQLite]:-Execute(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
+    stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO Events SELECT * FROM cacheDB.Events " ||
                                                   "WHERE NOT EXISTS( SELECT 1 FROM Events AS E, " ||
                                                   "cacheDB.Events AS ev WHERE e.RANUMID = ev.RANUMID AND " ||
                                                   "e.QUADID = ev.QUADID);");
