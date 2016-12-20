@@ -300,7 +300,7 @@ end proc:
 # Output:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
-grid::boolean, id::integer, variables::list, path::string, prefix::string, db2::ComputationRegister) 
+grid::boolean, id::integer, variables::list, path::string, prefix::string, db::ComputationRegister) 
   local numbers, firstEvent, R, rootTmp, n := nodes;
   global Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D, writer, vars2D := variables;
   if grid and nops(s) > 20 then
