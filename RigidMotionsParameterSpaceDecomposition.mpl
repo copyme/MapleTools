@@ -575,16 +575,16 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
 
   kernelopts(printbytes=false);
   Grid:-Setup("local", numnodes=nodes):
-  R := CayleyTransform(vars):
+  R := CayleyTransform(variables):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
        ComputeSetOfQuadrics(R, nType, 2, kRange) union
-       ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(vars)};
+       ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(variables)};
 
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
 
-  numbers := ComputeEventsAlgebraicNumbers(Q, vars):
+  numbers := ComputeEventsAlgebraicNumbers(Q, variables):
   numbers := convert(numbers, list):
   numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   #Insert events into the register
@@ -597,22 +597,19 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
   if grid and nodes > 1 then
     # The first cluster is heavy so we compute it separately;
-    skipped := CalculateHeavyIntersection(Q, cluster, treshold, vars, path, prefix, db); 
+    skipped := CalculateHeavyIntersection(Q, cluster, treshold, variables, path, prefix, db); 
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
-    #Grid:-Launch(ParallelComputeSamplePoints,
-               #imports = ['Q, cluster, skipped, vars, path, prefix, grid, db'], numnodes=nodes,
-               #printer=proc(x) return NULL: end proc);
     Grid:-Launch(ParallelComputeSamplePoints,
                  imports = [Q=Q, cluster=cluster, skipped=skipped, vars=variables, grid=grid,
                  dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, vars, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
   fi;
 
 end proc:
