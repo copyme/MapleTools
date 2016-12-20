@@ -569,7 +569,7 @@ end proc:
 
 
 LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
-                                         kRange::list, treshold::integer, gridP::boolean, nodes:=2) 
+                                         kRange::list, treshold::integer, grid::boolean, nodes:=2) 
   local numbers, firstEvent, R, rootTmp, i;
   local Q, cluster, skipped, db:=Object(ComputationRegister,"test.db");
 
