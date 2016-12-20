@@ -202,5 +202,3 @@ SortAlgebraicNumbers := proc (numbers::list)
         fi;
         end proc);
 end proc:
-
-end module;
