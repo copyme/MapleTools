@@ -536,11 +536,11 @@ end proc:
 
 
 LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
-                                         kRange::list, treshold::integer, grid::boolean, nodes:=20) 
+                                         kRange::list, grid::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local Q, cluster, db:=Object(ComputationRegister, dbPath);
 
-  mesg:=kernelopts(printbytes=false);
+  mesg:=kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(variables):
   Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
@@ -576,7 +576,7 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
   fi;
-  kernelopts(printbytes=mesg);
+  kernelopts(printbytes=mesg):
 end proc:
 
 #end module:
