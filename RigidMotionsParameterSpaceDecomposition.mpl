@@ -572,7 +572,7 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints,
                  imports = [Q=Q, cluster=cluster, vars=variables, grid=grid,
-                 dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
+                 dbPath=dbPath, skipped=[]], numnodes=nodes, printer=proc(x) return NULL: end proc);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
   fi;
