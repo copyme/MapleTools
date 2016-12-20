@@ -303,9 +303,9 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string, db::C
   local numbers, firstEvent, R, rootTmp, n := nodes;
   local Q2D := ListTools:-MakeUnique([op(variables),op(s)]), cluster2D;
   if grid and nops(s) > 20 then
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, vars2D), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, variables), list);
   else
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, vars2D), list);
+     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, variables), list);
   fi;
   numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
   if upperbound(numbers) = 0 then
@@ -319,7 +319,7 @@ grid::boolean, id::integer, variables::list, path::string, prefix::string, db::C
   # assign all conics to the first event
   cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
   rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*vars2D[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
 
   # The first cluster2D is heavy so we compute it separately;
