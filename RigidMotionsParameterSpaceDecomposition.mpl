@@ -504,15 +504,15 @@ end proc:
 #   prefix    - file name prefix
 # Output:
 #  See  ComputeSamplePoints2D.
-CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer, vars::list, path::string,
-                                   prefix::string, db::ComputationRegister) 
+CalculateHeavyIntersection := proc(Q, cluster::list, treshold::integer, vars::list,
+                                   db::ComputationRegister) 
   local i, card;
   local skipped := [];
   for i from 1 to nops(cluster) -1 do
    card := nops(ListTools:-MakeUnique(Threads:-Map(op, [op(cluster[i][..,2])])));
    if card >= treshold then
-     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, path, prefix, db);
-     skipped := [op(skipped),i];
+     ComputeSamplePoints(Q, cluster, i, i, 0, true, vars, db);
+     skipped := [op(skipped), i];
    fi
   od;
   return skipped;
@@ -569,9 +569,9 @@ end proc:
 
 
 LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
-                                         kRange::list, treshold::integer, grid::boolean, nodes:=2) 
+                                         kRange::list, treshold::integer, grid::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp, i;
-  local Q, cluster, skipped, db:=Object(ComputationRegister,"test.db");
+  local Q, cluster, skipped, db:=Object(ComputationRegister, dbPath);
 
   kernelopts(printbytes=false);
   Grid:-Setup("local", numnodes=nodes):
