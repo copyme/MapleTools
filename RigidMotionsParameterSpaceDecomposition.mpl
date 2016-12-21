@@ -46,15 +46,15 @@
 #
 #RigidMotionsParameterSpaceDecompostion := module() 
   #option package;
-  #export LaunchOnGridComputeSamplePoints, LaunchOnGridGetNMM, CalculateNMM,
-         #CayleyTransform, GetQuadric, GetNeighborhood, EliminationResultant, IsMonotonic, 
-         #ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection, ComputeEventsATypeGrid,
-         #ComputeEventsBTypeGrid, ComputeEventsCTypeGrid, ComputeEventsCType,
-         #ComputeEventsAlgebraicNumbers, SplitScan,
-         #ClusterEvents, ComputeSamplePoints, ParallelComputeSamplePoints, Isort, 
-         #GetOrderedCriticalPlanes, RecoverTranslationSamplePoints, Get3DNMM,
-         #ParallelCalculateNMM, ComputeSamplePoint, ComputeAsymptoticABEventsGrid,
-         #ComputeAsymptoticAAEventsGrid:
+  #local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
+         #ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
+         #ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
+         #ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
+         
+  #export LaunchOnGridComputeSamplePoints;
+  
+  #Variables shared by grid nodes;
+  #global Q, cluster, vars, dbPath;
 
 # Procedure: GetQuadric
 #   Compute a quadric.
@@ -68,10 +68,7 @@
 # Output:
 #   Multivariate polynomial of degree 2 related to the changed of configuration of image patch and
 #   given in [Quadrics:2016] as equation (7).
-GetQuadric := proc( R::~Matrix,
-                     neighbor::~Vector,
-                     hGridPlane::~Vector,
-                     axis::integer )
+GetQuadric := proc(R::~Matrix, neighbor::~Vector, hGridPlane::~Vector, axis::integer)
   local r := R . neighbor - hGridPlane;
   if axis > 0 and axis < 4 then
     return simplify( ( 2 * denom( R[1][1] ) ) * r[axis] );
@@ -461,7 +458,7 @@ end proc:
 # Output:
 #  See  ComputeSamplePoints2D
 ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, 
-                             grid::boolean, vars::list, db::ComputationRegister, skipped::list:=[]) 
+                             vars::list, db::ComputationRegister, skipped::list:=[]) 
 local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
@@ -490,14 +487,14 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 #
-ParallelComputeSamplePoints := proc(Q::set, cluster::list, skipped::list, vars::list, grid::boolean, dbPath::string) 
+ParallelComputeSamplePoints := proc()
   local me, numNodes, n;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, grid, vars, db, skipped);
+  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -534,10 +531,13 @@ end proc:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 
 
-LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType::string, 
+LaunchOnGridComputeSamplePoints := proc (variables::list, databasePath::string, nType::string, 
                                          kRange::list, grid::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
-  local Q, cluster, db:=Object(ComputationRegister, dbPath);
+  local db:=Object(ComputationRegister, databasePath);
+  global Q, cluster, vars, dbPath, skipped := [];
+  vars:=variables;
+  dbPath:=databasePath;
 
   mesg:=kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
@@ -569,13 +569,12 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, dbPath::string, nType:
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
-    Grid:-Launch(ParallelComputeSamplePoints,
-                 imports = [Q=Q, cluster=cluster, skipped=[], vars=variables, grid=grid,
-                 dbPath=dbPath], numnodes=nodes, printer=proc(x) return NULL: end proc);
+    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes,
+                 printer=proc(x) return NULL end proc);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
   fi;
-  kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg):
 end proc:
 
 #end module:
