@@ -115,4 +115,29 @@ module ComputationRegister()
     Database[SQLite]:-Finalize(stmt);
   end proc;
 
+  export FetchSkippedClusters::static := proc(self::ComputationRegister)
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT * FROM SkippedCluster;");
+    local result := convert(Database[SQLite]:-FetchAll(stmt), list);
+    Database[SQLite]:-Finalize(stmt);
+    return result;
+  end proc;
+
+  export FetchRealAlgebraicNumbers::static := proc(self::ComputationRegister)
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
+                                            "IntervalR FROM RealAlgebraicNumber;");
+    local stmp, numbers := Array([]), rowAlg, quads, numID;
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_ROW do
+      rowAlg := Database[SQLite]:-FetchRow(stmt); 
+      stmp := Database[SQLite]:-Prepare(self:-connection, "SELECT QuadID FROM Events WHERE " ||
+                                        "RANumID=?;");
+      Database[SQLite]:-Bind(stmp, 1, rowAlg[1]);    
+      quads := convert(Database[SQLite]:-FetchAll(stmp), list);
+      ArrayTools:-Append(numbers, [Object( RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]),
+      parse(rowAlg[4])), quads]);
+      Database[SQLite]:-Finalize(stmp);
+    od;
+    Database[SQLite]:-Finalize(stmt);
+    return numbers;
+  end proc;
+
 end module;
