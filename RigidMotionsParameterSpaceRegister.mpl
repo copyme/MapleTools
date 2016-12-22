@@ -126,7 +126,7 @@ module ComputationRegister()
   export FetchQuadrics::static := proc(self::ComputationRegister)
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT polynom FROM Quadric " ||
                                             "ORDER BY ID;");
-    local result := convert(Database[SQLite]:-FetchAll(stmt), list);
+    local result := map(parse, convert(Database[SQLite]:-FetchAll(stmt), list));
     Database[SQLite]:-Finalize(stmt);
     return result;
   end proc;
