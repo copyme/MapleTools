@@ -414,30 +414,8 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
   numAsym:=ComputeAsymptoticABEventsGrid(Q, vars);
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
-  
-  # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
-  if not StringTools:-Has(kernelopts(version), "Maple 2016") and upperbound(numbers) <> 0 then
-      numbers := sort(numbers, 
-                           proc( l, r ) 
-                             if Compare( l[1], r[1] ) = -1 then
-                               return true:
-                             else 
-                               return false:
-                             fi:
-                           end proc
-                  );
-  elif StringTools:-Has(kernelopts(version), "Maple 2016") then
-      sort['inplace'](numbers, 
-                           proc( l, r ) 
-                             if Compare( l[1], r[1] ) = -1 then
-                               return true:
-                             else 
-                               return false:
-                             fi:
-                           end proc
-                  );
-  fi;
-  return numbers:
+
+  return SortEvents(numbers);
 end proc:
 
 # Procedure: ComputeSamplePoints
@@ -531,7 +509,7 @@ end proc:
 #   The output file(s) are saved into a files: path/prefix(id).tsv
 
 
-LaunchOnGridComputeSamplePoints := proc (variables::list, databasePath::string, nType::string, 
+LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
                                          kRange::list, grid::boolean, nodes:=20) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
@@ -576,5 +554,44 @@ LaunchOnGridComputeSamplePoints := proc (variables::list, databasePath::string, 
   fi;
   mesg:=kernelopts(printbytes=mesg):
 end proc:
+
+
+ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
+                                         kRange::list, grid::boolean, nodes:=20)
+  local events, firstEvent, R, rootTmp, i, mesg;
+  local db:=Object(ComputationRegister, databasePath);
+  global Q, cluster, vars, dbPath, skipped;
+  vars:=variables;
+  dbPath:=databasePath;
+
+  mesg:=kernelopts(printbytes=false):
+  Grid:-Setup("local", numnodes=nodes):
+  Q := FetchQuadrics(db);
+
+  events := FetchRealAlgebraicNumbers(db);
+  SortEvents(events);
+  
+  cluster := ClusterEvents(numbers);
+  # assign all quadrics to the second event
+  cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
+  # add the last slice twice but shifted to calculate correctly last quadrics
+  rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
+  cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
+
+  skipped := FetchSkippedClusters(db);
+  
+  if grid and nodes > 1 then
+    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
+    # writing to a file from a node. It seems that while fprintf is called it also calls printf
+    # which is a default printer function. Therefore, data are returned to node of ID 0. 
+    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
+                 numnodes=nodes, printer=proc(x) return NULL end proc);
+  else
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
+  fi;
+  mesg:=kernelopts(printbytes=mesg):
+
+end proc;
 
 #end module:

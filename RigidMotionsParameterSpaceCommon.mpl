@@ -201,4 +201,30 @@ SortAlgebraicNumbers := proc (numbers::list)
           return false:
         fi;
         end proc);
-end proc:
+
+SortEvents :=proc(events::list)
+  # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
+  if not StringTools:-Has(kernelopts(version), "Maple 2016") and upperbound(events) <> 0 then
+      events := sort(events, 
+                           proc( l, r ) 
+                             if Compare( l[1], r[1] ) = -1 then
+                               return true:
+                             else 
+                               return false:
+                             fi:
+                           end proc
+                  );
+  elif StringTools:-Has(kernelopts(version), "Maple 2016") then
+      sort['inplace'](events, 
+                           proc( l, r ) 
+                             if Compare( l[1], r[1] ) = -1 then
+                               return true:
+                             else 
+                               return false:
+                             fi:
+                           end proc
+                  );
+  fi;
+  return events;
+end proc;
+
