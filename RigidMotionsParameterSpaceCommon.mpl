@@ -201,6 +201,7 @@ SortAlgebraicNumbers := proc (numbers::list)
           return false:
         fi;
         end proc);
+end proc;
 
 SortEvents :=proc(events::list)
   # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
