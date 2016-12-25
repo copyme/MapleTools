@@ -391,7 +391,7 @@ end proc:
 #   vars       - a list of variables
 # Output:
 #   Sorted set of real algebraic numbers
-ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
+ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
   local events, rootsF, rf, poly:
   local numbers := Array([]):
   local numAsym;
