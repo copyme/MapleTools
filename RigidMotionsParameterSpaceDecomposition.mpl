@@ -435,7 +435,7 @@ end proc:
 #
 # Output:
 #  See  ComputeSamplePoints2D
-ComputeSamplePoints := proc (Q::~set, cluster::list, first::integer, last::integer, 
+ComputeSamplePoints := proc (Q, cluster::list, first::integer, last::integer, 
                              vars::list, db::ComputationRegister, skipped::list:=[]) 
 local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
