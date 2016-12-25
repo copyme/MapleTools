@@ -133,40 +133,18 @@ module ComputationRegister()
 
   export FetchRealAlgebraicNumbers::static := proc(self::ComputationRegister)
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
-                                            "IntervalR FROM RealAlgebraicNumber;");
-    local stmp, numbers := Array([]), rowAlg, quads;
-    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_ROW do
-      rowAlg := Database[SQLite]:-FetchRow(stmt); 
-      stmp := Database[SQLite]:-Prepare(self:-connection, "SELECT QuadID FROM Events WHERE " ||
-                                        "RANumID=?;");
-      Database[SQLite]:-Bind(stmp, 1, rowAlg[1]);    
-      quads := convert(Database[SQLite]:-FetchAll(stmp), list);
-      ArrayTools:-Append(numbers, [Object( RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]),
-      parse(rowAlg[4])), quads]);
-      Database[SQLite]:-Finalize(stmp);
-    od;
-    Database[SQLite]:-Finalize(stmt);
-    return numbers;
-  end proc;
-
-
-  export FetchRealAlgebraicNumbers2::static := proc(self::ComputationRegister)
-    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
-                                            "IntervalR FROM RealAlgebraicNumber;");
+    "IntervalR, group_concat(QuadID) AS quads  FROM RealAlgebraicNumber JOIN EVENTS ON " ||
+    "ID = RANUMID GROUP BY ID;");
     local allRows, s;
     allRows := Database[SQLite]:-FetchAll(stmt);
     Database[SQLite]:-Finalize(stmt);
-    s := proc(i::integer, conn, allRows)
+    s := proc(i::integer, allRows)
       local stmp, rowAlg, quads;
       rowAlg := allRows[i];
-      stmp := Database[SQLite]:-Prepare(conn, "SELECT QuadID FROM Events WHERE " ||
-                                        "RANumID=?;");
-      Database[SQLite]:-Bind(stmp, 1, rowAlg[1]);    
-      quads := convert(Database[SQLite]:-FetchAll(stmp), list);
-      Database[SQLite]:-Finalize(stmp);
-      return [Object( RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), parse(rowAlg[4])), quads];
+      return [Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), parse(rowAlg[4])),
+                     parse(rowAlg[5])];
     end proc;
-    return Threads:-Seq(s(i, self:-connection, allRows),i=1..upperbound(allRows)[1]);
+    return Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1]);
   end proc;
 
 end module;

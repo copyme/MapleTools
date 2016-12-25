@@ -568,7 +568,7 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
   Grid:-Setup("local", numnodes=nodes):
   Q := FetchQuadrics(db);
 
-  events := FetchRealAlgebraicNumbers2(db);
+  events := FetchRealAlgebraicNumbers(db);
   SortEvents(events);
   
   cluster := ClusterEvents(numbers);
