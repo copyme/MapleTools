@@ -144,7 +144,7 @@ module ComputationRegister()
       return [Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), parse(rowAlg[4])),
                      parse(rowAlg[5])];
     end proc;
-    return Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1]);
+    return [Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1])];
   end proc;
 
 end module;

@@ -558,7 +558,7 @@ end proc:
 
 ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
                                          kRange::list, grid::boolean, nodes:=20)
-  local events, firstEvent, R, rootTmp, i, mesg;
+  local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped;
   vars:=variables;
@@ -571,7 +571,7 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
   events := FetchRealAlgebraicNumbers(db);
   SortEvents(events);
   
-  cluster := ClusterEvents(numbers);
+  cluster := ClusterEvents(events);
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
