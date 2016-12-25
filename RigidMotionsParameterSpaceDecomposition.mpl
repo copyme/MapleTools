@@ -404,7 +404,7 @@ ComputeEventsAlgebraicNumbers := proc( Q::~set, vars::list )
     for sqrFree in factored do
       rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
       for rf in rootsF do
-        ArrayTools:-Append(numbers, [ Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+        ArrayTools:-Append(numbers, [Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
         op(rf)[2][2] ), poly[2]]):
       od:
     od:
@@ -445,15 +445,14 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
     if i in skipped then
       next;
     fi:
-    sys := {}: 
+    sys := []: 
     for x in cluster[i] do 
-      sys := sys union Q[x[2]]:
+      sys := [op(sys), op(Q[x[2]])]:
     end do:
-
     disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
-    sys := eval(convert(sys, list), vars[1] = midpoint);
+    sys := eval(sys, vars[1] = midpoint);
     LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
     SynchronizeSamplePoints(db);
     InsertSkippedCluster(db, i);
@@ -520,10 +519,9 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   mesg:=kernelopts(printbytes=false):
   Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(variables):
-  Q := ComputeSetOfQuadrics(R, nType, 1, kRange) union 
-       ComputeSetOfQuadrics(R, nType, 2, kRange) union
-       ComputeSetOfQuadrics(R, nType, 3, kRange) union {op(variables)};
-
+  Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
+       op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
+       op(ComputeSetOfQuadrics(R, nType, 3, kRange)), op(variables)]);
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
@@ -542,7 +540,7 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
-  cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
+  cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if grid and nodes > 1 then
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
@@ -577,7 +575,7 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
-  cluster := [op(cluster), [firstEvent ,cluster[-1][1][2]]]:
+  cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
 
   skipped := FetchSkippedClusters(db);
   

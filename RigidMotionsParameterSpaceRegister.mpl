@@ -142,7 +142,7 @@ module ComputationRegister()
       local stmp, rowAlg, quads;
       rowAlg := allRows[i];
       return [Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), parse(rowAlg[4])),
-                     parse(rowAlg[5])];
+                     [parse(rowAlg[5])]];
     end proc;
     return [Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1])];
   end proc;
