@@ -158,8 +158,8 @@ module ComputationRegister()
     Database[SQLite]:-Step(stmt);
     Database[SQLite]:-Finalize(stmt);
     for x in quadrics do
-      stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.Events(RANumID, " ||
-                                                         "QuadID) VALUES(?, ?);");
+      stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+                             "cacheDB.Events(RANumID, QuadID) VALUES(?, ?);");
       Database[SQLite]:-Bind(stmt, 1, idNum);
       Database[SQLite]:-Bind(stmt, 2, x);
       while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
@@ -179,7 +179,7 @@ module ComputationRegister()
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric SELECT * FROM " ||
                                                   "cacheDB.Quadric WHERE NOT EXISTS(SELECT 1 FROM " 
                                                   || "Quadric AS Q, cacheDB.Quadric AS qc WHERE " ||
-                                                  "q.ID = qc.ID AND q.POLYNOM = qc.POLYNOM);");
+                                                  "q.POLYNOM = qc.POLYNOM);");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
