@@ -418,23 +418,23 @@ ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
   return SortEvents(numbers);
 end proc:
 
+
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions
 #
 #
 # Parameters:
+#   Q                  - list of quadrics
 #   cluster            - each element contains a list of equal real algebraic number and quadrics
 #                        related.
 #   first              - integer value which indicates a first cluster to proceed.
 #   last               - integer value which indicates a last cluster to proceed.
-#   id                 - id which indicates a node
 #   vars               - list of variables in which conics are expressed
-#   path               - directory in which the output is going to be saved
-#   prefix             - file name prefix
-#   skipped            -  a list of the cluster indices to be skipped
+#   db                 - an instance of the class ComputationRegister
+#   skipped            - a list of the cluster indices to be skipped
 #
 # Output:
-#  See  ComputeSamplePoints2D
+#   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints := proc (Q, cluster::list, first::integer, last::integer, 
                              vars::list, db::ComputationRegister, skipped::list:=[]) 
 local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
@@ -460,10 +460,10 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
   return NULL;
 end proc:
 
+
 # Procedure: ParallelComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
-#
 ParallelComputeSamplePoints := proc()
   local me, numNodes, n;
   local db:=Object(ComputationRegister, dbPath);
@@ -476,40 +476,20 @@ ParallelComputeSamplePoints := proc()
 end proc:
 
 
-# Procedure: ComputeSamplePoints
+# Procedure: LaunchOnGridComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions using the grid framework
 #
 #
 # Parameters:
-#   variables      - list of variables in which conics are expressed
-#   pathP          - directory in which the output is going to be saved
-#   prefixP        - file name prefix
-#   nType          - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange         - a range of planes to consider
+#   variables     - list of variables in which the problem is expressed
+#   databasePath  - a path to a copy of the database CompRegister.db
+#   nType         - neighborhood type: N1, N2 or N3.
+#   kRange        - range of grid lines passed as a list
+#   nodes         - number of nodes used in the parallel computations
 # Output:
-#   Writes a list of sample points into a file "sam_id.csv" where id corresponds to an id of used
-#   thread during computations.
-
-
-
-# Procedure: ComputeSamplePoints
-#   Computes sample points for rotational part of rigid motions using the grid framework
-#
-#
-# Parameters:
-#   variables  - list of variables in which the problem is expressed
-#   pathP      - directory in which the output is going to be saved
-#   prefixP    - files' name prefix
-#   nType      - neighborhood type: N1, N2 or N3.
-#   kRange     - range of grid lines passed as a list
-#   threshold  - the lower bound on number of conics for which we should not use grid framework 
-#   nodes      - number of nodes used in the parallel computations
-# Output:
-#   The output file(s) are saved into a files: path/prefix(id).tsv
-
-
+#   It populates a database given by databasePath.
 LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
-                                         kRange::list, grid::boolean, nodes:=20) 
+                                         kRange::list, nodes:=2) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped := [];
@@ -517,7 +497,6 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   dbPath:=databasePath;
 
   mesg:=kernelopts(printbytes=false):
-  Grid:-Setup("local", numnodes=nodes):
   R := CayleyTransform(variables):
   Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
        op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
@@ -525,6 +504,7 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
+  SynchronizeQuadrics(db);
 
   numbers := ComputeEventsAlgebraicNumbers(Q, variables):
   numbers := convert(numbers, list):
@@ -533,7 +513,7 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   for i from 1 to nops(numbers) do
     InsertEvent(db, i, numbers[i][1], numbers[i][2])
   od;
-  SynchronizeAlgebraicNumbers(db);
+  SynchronizeEvents(db);
   cluster := ClusterEvents(numbers):
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
@@ -541,21 +521,35 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
-  if grid and nodes > 1 then
+  if nodes > 1 then
+    Grid:-Setup("local", numnodes=nodes):
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes,
-                 printer=proc(x) return NULL end proc);
+    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], 
+    numnodes=nodes, printer=proc(x) return NULL end proc);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
   mesg:=kernelopts(printbytes=mesg):
 end proc:
 
 
+# Procedure: ResumeComputations
+#   Resumes computations of sample points for rotational part of rigid motions using
+#   the grid framework.
+#
+#
+# Parameters:
+#   variables     - list of variables in which the problem is expressed
+#   databasePath  - a path to a copy of the database CompRegister.db
+#   nType         - neighborhood type: N1, N2 or N3.
+#   kRange        - range of grid lines passed as a list
+#   nodes         - number of nodes used in the parallel computations
+# Output:
+#   It populates a database given by databasePath.
 ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
-                                         kRange::list, grid::boolean, nodes:=20)
+                                         kRange::list, grid::boolean, nodes:=2)
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped;
@@ -563,10 +557,9 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
   dbPath:=databasePath;
 
   mesg:=kernelopts(printbytes=false):
-  Grid:-Setup("local", numnodes=nodes):
   Q := FetchQuadrics(db);
 
-  events := FetchRealAlgebraicNumbers(db);
+  events := FetchEvents(db);
   SortEvents(events);
   
   cluster := ClusterEvents(events);
@@ -580,13 +573,14 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
   skipped := FetchSkippedClusters(db);
   
   if grid and nodes > 1 then
+    Grid:-Setup("local", numnodes=nodes):
     # We define printer as a procedure which returns NULL to avoid a memory leak problem while
     # writing to a file from a node. It seems that while fprintf is called it also calls printf
     # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
                  numnodes=nodes, printer=proc(x) return NULL end proc);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, 1, false, variables, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
   mesg:=kernelopts(printbytes=mesg):
 
