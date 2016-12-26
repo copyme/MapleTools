@@ -489,7 +489,7 @@ end proc:
 # Output:
 #   It populates a database given by databasePath.
 LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
-                                         kRange::list, nodes:=2) 
+                                        kRange::list, nodes:=kernelopts(numcpus)) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped := [];
@@ -519,7 +519,8 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
+                       rootTmp);
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
@@ -549,7 +550,7 @@ end proc:
 # Output:
 #   It populates a database given by databasePath.
 ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
-                                         kRange::list, grid::boolean, nodes:=2)
+                           kRange::list, grid::boolean, nodes:=kernelopts(numcpus))
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped;
