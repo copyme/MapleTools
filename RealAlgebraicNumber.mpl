@@ -53,8 +53,8 @@ module RealAlgebraicNumber()
 #   Standard constructor / copy constructor
 #
 # Parameters:
-#   self::RealAlgebraicNumber      - a new object to be constructed
-#   proto::RealAlgebraicNumber     - a prototype object from which self is derived
+#   self::RealAlgebraicNumber     - a new object to be constructed
+#   proto::RealAlgebraicNumber    - a prototype object from which self is derived
 #   poly::polynom                 - a univariate polynomial
 #   a::rational                   - a lower bound of the range in which exists only one real root of poly 
 #   b::rational                   - an upper bound of the range in which exists only one real root of poly 
