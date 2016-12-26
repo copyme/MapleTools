@@ -120,8 +120,8 @@ module ComputationRegister()
 #   into the register.
 #
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO cacheDB.Quadric(ID, polynom) "
-                                            || "VALUES (?, ?);");
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+                                 "cacheDB.Quadric(ID, polynom) VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
@@ -220,8 +220,8 @@ module ComputationRegister()
 #
 #
   export InsertSkippedCluster::static := proc(self::ComputationRegister, id::integer)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO SkippedCluster " || 
-                                          "(clusterID) VALUES (?);");
+    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+                                 "SkippedCluster (clusterID) VALUES (?);");
     Database[SQLite]:-Bind(stmt, 1, id);    
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
