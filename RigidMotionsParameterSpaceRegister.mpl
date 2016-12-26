@@ -80,10 +80,11 @@ module ComputationRegister()
       Database[SQLite]:-Attach(self:-connection, ":memory:", "cacheDB");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.RealAlgebraicNumber (ID INTEGER PRIMARY" ||    
-      " KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR TEXT NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY NOT NULL UNIQUE, "
-      || "polynom TEXT NOT NULL UNIQUE);");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.RealAlgebraicNumber " ||
+      "(ID INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, " ||
+      "IntervalR TEXT NOT NULL);");
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
+      "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
       "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
       "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
