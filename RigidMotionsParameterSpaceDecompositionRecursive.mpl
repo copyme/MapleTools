@@ -1,3 +1,55 @@
+# File: RigidMotionsParameterSpaceDecompostionRecursive.mpl  
+#
+# Description:
+#  This file contains functions used to obtain an arrangement 6 dimensional parameter space of 3D
+#  digitized rigid motions.
+#  This code has been written for research propose and its aim is to calculate a particular
+#  arrangement of quadrics. Therefore, it can or it cannot be useful in study of generic
+#  arrangements. The final output are sample points of full dimensional open cells.
+#
+#  The code was written in relation with the paper: Kacper Pluta, Guillaume Moroz, Yukiko
+#  Kenmochi, Pascal Romon, Quadric arrangement in classifying rigid motions of a 3D digital image,
+#  2016, https://hal.archives-ouvertes.fr/hal-01334257 referred late on as [Quadrics:2016].
+#
+# Author:
+#  Kacper Pluta - kacper.pluta@esiee.fr
+#  Laboratoire d'Informatique Gaspard-Monge - LIGM, A3SI, France
+#
+# Date:
+#  12/24/2016 
+#
+# License:
+#  Simplified BSD License
+#
+# Copyright (c) 2016, Kacper Pluta
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL Kacper Pluta BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#
+RigidMotionsParameterSpaceDecompostionRecursive := module() 
+  option package;
+  local  ComputeEventsAType2D, ComputeEventsBType2D, ComputeEventsAType1D, IsAsymptotic2D,
+         ComputeAsymptoticAAEvents2D, ComputeEventsAlgebraicNumbers2D, ComputeSamplePoints2D;
+         
+  export LaunchComputeSamplePoints2D;
 
 # Procedure: ComputeEventsAType2D
 #   Compute events such that a sweep line is tangent to a conic with respect to the first provided
@@ -97,10 +149,12 @@ end proc:
 # Parameters:
 #   Q2D2          - a set of conics
 #   vars2D       - a list of the variables
+#   grid       - if true then computations are performed in the parallel computation framework
+#                called Grid (see Maple documentation)
 #
 # Output: Real
 #   A list of real algebraic numbers and indexes of conics: [ RealAlgebraicNumber, [index]].
-ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars2D::list)
+ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list, grid::boolean)
   local out := [], s, factored, sqrFree;
   s:=proc(i::integer, vars2D::list)
     local rf, rootsF;
@@ -118,7 +172,11 @@ ComputeAsymptoticAAEvents2DGrid := proc(Q2D2, vars2D::list)
      fi:
     return numbers;
   end proc:
-  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
+  if grid then
+    out:=select(proc(x) return evalb(x<>[]) end, [Grid:-Seq(s(i, vars2D),i=1..nops(Q2D2))]);
+  else
+    out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
+  fi;
   return ListTools:-Flatten(out, 1);
 end:
 
@@ -139,7 +197,8 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
   local numbers := Array([]);
   local factored, sqrFree;
 
-  events:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, vars2D))];
+  events:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
+            vars2D))];
   for poly in events do
     factored := factors(poly[1])[2,..,1];
     for sqrFree in factored do
@@ -150,8 +209,7 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
       od;
     od;
   od;
-  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2DGrid(Q2D2, vars2D)]));
-
+  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2D(Q2D2, vars2D)]));
   return SortEvents(numbers);
 end proc:
 
@@ -173,7 +231,7 @@ ComputeEventsAType1D := proc(Q2D2::list)
         rootsF := RootFinding:-Isolate(sqrFree, output='interval');
         for rf in rootsF do
           ArrayTools:-Append(numbers, Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-          op(rf)[2][2]));
+                             op(rf)[2][2]));
         od;
       od;
    fi;
@@ -184,36 +242,20 @@ ComputeEventsAType1D := proc(Q2D2::list)
 end proc:
 
 
-# Procedure: ParallelComputeSamplePoints2D
-#   Computes sample points for rotational part of rigid motions. It should be call via Grid
-#   framework.
-#
-ParallelComputeSamplePoints2D := proc(Q, cluster, vars, amid::rational, database::ComputationRegister) 
-  local me, numNodes, n;
-  me := Grid:-MyNode();
-  numNodes := Grid:-NumNodes();
-  # cluster-1 because the last cluster is a doubled cluster[-2]
-  n := trunc((upperbound(cluster2D)-1)/numNodes);
-  ComputeSamplePoints2D(Q, cluster, me*n+1,(me+1)*n, vars, amid, db);
-  Grid:-Barrier();
-end proc:
-
 # Procedure: ComputeSamplePoints2D
 #   Computes sample points for rotational part of rigid motions
 #
 # Parameters:
-#   Q2D                - a list of conics
-#   cluster2D          - each element contains a list of equal real algebraic number and related
-#                        conics.
-#   first              - integer value which indicates a first cluster to proceed.
-#   last               - integer value which indicates a last cluster to proceed.
-#   vars2D               - list of variables in which conics are expressed
-#   writer             - an object of class SamplePointsWriter used to save sample points
+#   Q2D         - a list of conics
+#   cluster2D   - each element contains a list of equal real algebraic number and related
+#                 conics.
+#   first       - integer value which indicates a first cluster to proceed.
+#   last        - integer value which indicates a last cluster to proceed.
+#   vars2D      - list of variables in which conics are expressed
+#   db          - an instance of the class ComputationRegister
 #
 # Output:
-#   Writes a list of sample points into a file "sam_id.csv". Note that all sample points are
-#   positive since other variation are same up to some similarities (reflections and rotations).
-#
+#   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
@@ -224,9 +266,8 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::intege
   for i from first to last do 
     sys := []: 
     for x in cluster2D[i] do 
-      sys := [op(sys), Q2D[x[2]]]:
+      sys := [op(sys), op(Q2D[x[2]])]:
     end do:
-    sys := ListTools:-Flatten(sys);
     sys := ListTools:-MakeUnique(sys);
     disjointEvent := DisjointRanges(cluster2D[i][1][1],cluster2D[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
@@ -249,13 +290,12 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::intege
       for j from 1 to upperbound(oneD) - 1 do
         disjointEvent := DisjointRanges(oneD[j],oneD[j+1]);
         samplePoints := [op(samplePoints), [amid, midpoint, (GetInterval(disjointEvent[1])[2] +
-                                                       GetInterval(disjointEvent[2])[1])/2]];
+                                            GetInterval(disjointEvent[2])[1])/2]];
       od:
       samplePoints := [op(samplePoints), [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]];
       map(proc(x) InsertSamplePoint(db, x) end proc, samplePoints);
     fi:
  od:
- return NULL;
 end proc:
 
 
@@ -268,45 +308,34 @@ end proc:
 #   midpoint  - the first dimensional midpoint obtained from the 3D decomposition
 #   nodes     - number of nodes used in the parallel computations
 #   grid      - a control variable for parallel computations. If true and additional conditions on
-#               the size of the problem are fullfiled the problem is solved in the grid framework.
+#               the size of the problem are fulfilled the problem is solved in the grid framework
 #   variables - list of variables in which the problem is expressed
-#   path      - directory in which the output is going to be saved
-#   prefix    - file name prefix
+#   db        - an instance of ComputationRegister which provides interface to the database
 # Output:
-#   The output file(s) are saved into a files: path/prefix(id).tsv
-LaunchOnGridComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
+#   It populates a database with sample points.
+LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
                                            grid::boolean, variables::list, db::ComputationRegister) 
-  local numbers, firstEvent, R, rootTmp, n := nodes;
-  local Q := ListTools:-MakeUnique([op(variables),op(s)]), cluster;
+  local events, firstEvent, rootTmp;
+  local Q2D := ListTools:-MakeUnique([op(variables), op(s)]), cluster2D;
   if grid and nops(s) > 20 then
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q, true, variables), list);
+     events := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, variables), list);
   else
-     numbers := convert(ComputeEventsAlgebraicNumbers2D(Q, false, variables), list);
+     events := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, variables), list);
   fi;
-  numbers := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
-  if upperbound(numbers) = 0 then
+  events := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, events);
+  if upperbound(events) = 0 then
     return NULL;
   fi;
-  cluster := ClusterEvents(numbers):
-  if upperbound(cluster) < nodes then
-    n := upperbound(cluster);
-  fi;
+  cluster2D := ClusterEvents(events);
 
   # assign all conics to the first event
-  cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
-  rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
-  cluster := [op(cluster), [[firstEvent, cluster[-1][1][2]]]];
+  cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
+  rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
+                       rootTmp);
+  cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
 
-  # The first cluster is heavy so we compute it separately;
-  # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-  # writing to a file from a node. It seems that while fprintf is called it also calls printf
-  # which is a default printer function. Therefore, data are returned to node of ID 0. 
-  if grid and nodes > 1 then
-    Grid:-Launch(ParallelComputeSamplePoints2D, imports=[Q=Q, cluster=cluster, vars=variables,
-    amid=midpoint, database=db], numnodes=n, printer=proc(x) return NULL: end proc);
-  else
-    ComputeSamplePoints2D(Q, cluster, 1, nops(cluster) - 1, variables, midpoint, db);
-  fi;
+  ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, variables, midpoint, db);
 end proc:
 
+end module;

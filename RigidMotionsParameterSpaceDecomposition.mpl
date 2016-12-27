@@ -46,6 +46,7 @@
 #
 RigidMotionsParameterSpaceDecompostion := module() 
   option package;
+  uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
   local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
          ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
@@ -54,7 +55,7 @@ RigidMotionsParameterSpaceDecompostion := module()
   export LaunchComputeSamplePoints, LaunchResumeComputations;
   
   #Variables shared by grid nodes;
-  #global Q, cluster, vars, dbPath;
+  global Q, cluster, vars, dbPath, skipped;
 
 # Procedure: GetQuadric
 #   Compute a quadric.
@@ -453,11 +454,10 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
     sys := eval(sys, vars[1] = midpoint);
-    LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
+    LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
     SynchronizeSamplePoints(db);
     InsertSkippedCluster(db, i);
   end do;
-  return NULL;
 end proc:
 
 
@@ -492,7 +492,6 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
                                   kRange::list, nodes:=kernelopts(numcpus)) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
-  global Q, cluster, vars, dbPath, skipped := [];
   vars:=variables;
   dbPath:=databasePath;
 
@@ -540,7 +539,7 @@ end proc:
 #
 # Parameters:
 #   variables     - list of variables in which the problem is expressed
-#   databasePath  - a path to a copy of the database CompRegister.db
+#   databasePath  - a path to a database file. If file does not exist it will be crated.
 #   nType         - neighborhood type: N1, N2 or N3.
 #   kRange        - range of grid lines passed as a list
 #   nodes         - number of nodes used in the parallel computations
@@ -550,7 +549,6 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
                            kRange::list, nodes:=kernelopts(numcpus))
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
-  global Q, cluster, vars, dbPath, skipped;
   vars:=variables;
   dbPath:=databasePath;
 
@@ -565,7 +563,8 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
+                       rootTmp);
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
 
   skipped := FetchSkippedClusters(db);

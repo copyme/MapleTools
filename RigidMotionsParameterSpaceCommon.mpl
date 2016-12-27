@@ -175,7 +175,7 @@ OneVariableElimination := proc( p, q, v)
         r := resultant(p, q, v); 
         r := RemoveExponants(r);
         return r;
-    elif  nops(indets({p,q}))=1 then
+    elif nops(indets({p,q}))=1 then
         return gcd(p, q);
     else
         return p;
@@ -216,6 +216,7 @@ SortAlgebraicNumbers := proc (numbers::list)
         fi;
         end proc);
 end proc;
+
 
 SortEvents :=proc(events)
   # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
