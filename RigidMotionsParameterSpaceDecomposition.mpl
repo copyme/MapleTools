@@ -51,7 +51,7 @@ RigidMotionsParameterSpaceDecompostion := module()
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
          ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
          
-  export LaunchOnGridComputeSamplePoints, ResumeComputations;
+  export LaunchComputeSamplePoints, LaunchResumeComputations;
   
   #Variables shared by grid nodes;
   #global Q, cluster, vars, dbPath;
