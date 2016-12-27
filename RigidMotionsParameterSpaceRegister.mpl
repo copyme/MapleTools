@@ -49,8 +49,7 @@ module ComputationRegister()
 # Parameters:
 #   self::ComputationRegister      - a new object to be constructed
 #   proto::ComputationRegister     - a prototype object from which self is derived
-#   dbPath::string                 - a path to a database which is a copy of the file 
-#                                    CompRegister.db
+#   dbPath::string                 - a path to a database
 #
 # Comment:
 #   The database is open in such a way that journal_mode is set to WAL and
@@ -73,13 +72,28 @@ module ComputationRegister()
     if _passed = 2 then
       self:-connection := proto:-connection;
     else
-      if not FileTools:-Exists(dbPath) then
-        error "There is no database %1.", dbPath;
-      fi;
-      self:-connection := Database[SQLite]:-Open(dbPath, create=false);
+      fileStatus:=FileTools:-Exists(dbPath);
+      self:-connection := Database[SQLite]:-Open(dbPath);
       Database[SQLite]:-Attach(self:-connection, ":memory:", "cacheDB");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL");
+
+      #Create tables
+      if not fileStatus then
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE Quadric (ID PRIMARY KEY NOT " ||
+        "NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE RealAlgebraicNumber (ID " ||
+        "INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT " ||
+        "NULL, IntervalR TEXT NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE Events (RANumID INTEGER " ||
+        "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
+        "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE SamplePoint (A TEXT NOT NULL, " ||
+        "B TEXT NOT NULL, C TEXT NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE SkippedCluster (clusterID " ||
+        "INTEGER UNIQUE NOT NULL);");
+      fi;
+
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.RealAlgebraicNumber " ||
       "(ID INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, " ||
       "IntervalR TEXT NOT NULL);");
