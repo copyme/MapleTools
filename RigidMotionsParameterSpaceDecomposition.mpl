@@ -44,14 +44,14 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
-#RigidMotionsParameterSpaceDecompostion := module() 
-  #option package;
-  #local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
-         #ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
-         #ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
-         #ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
+RigidMotionsParameterSpaceDecompostion := module() 
+  option package;
+  local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
+         ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
+         ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
+         ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
          
-  #export LaunchOnGridComputeSamplePoints;
+  export LaunchOnGridComputeSamplePoints, ResumeComputations;
   
   #Variables shared by grid nodes;
   #global Q, cluster, vars, dbPath;
@@ -476,7 +476,7 @@ ParallelComputeSamplePoints := proc()
 end proc:
 
 
-# Procedure: LaunchOnGridComputeSamplePoints
+# Procedure: LaunchOnComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions using the grid framework
 #
 #
@@ -488,8 +488,8 @@ end proc:
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
-LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
-                                        kRange::list, nodes:=kernelopts(numcpus)) 
+LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
+                                  kRange::list, nodes:=kernelopts(numcpus)) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped := [];
@@ -524,11 +524,8 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-    # writing to a file from a node. It seems that while fprintf is called it also calls printf
-    # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], 
-    numnodes=nodes, printer=proc(x) return NULL end proc);
+    numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
@@ -536,7 +533,7 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
 end proc:
 
 
-# Procedure: ResumeComputations
+# Procedure: LaunchResumeComputations
 #   Resumes computations of sample points for rotational part of rigid motions using
 #   the grid framework.
 #
@@ -549,8 +546,8 @@ end proc:
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
-ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
-                           kRange::list, grid::boolean, nodes:=kernelopts(numcpus))
+LaunchResumeComputations := proc(variables::list, databasePath::string, nType::string, 
+                           kRange::list, nodes:=kernelopts(numcpus))
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   global Q, cluster, vars, dbPath, skipped;
@@ -573,13 +570,10 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
 
   skipped := FetchSkippedClusters(db);
   
-  if grid and nodes > 1 then
+  if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-    # writing to a file from a node. It seems that while fprintf is called it also calls printf
-    # which is a default printer function. Therefore, data are returned to node of ID 0. 
     Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
-                 numnodes=nodes, printer=proc(x) return NULL end proc);
+                 numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
@@ -587,4 +581,4 @@ ResumeComputations := proc(variables::list, databasePath::string, nType::string,
 
 end proc;
 
-#end module:
+end module:
