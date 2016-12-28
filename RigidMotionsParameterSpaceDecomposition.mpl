@@ -55,7 +55,7 @@ RigidMotionsParameterSpaceDecompostion := module()
          
   export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
          LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
-  
+
   #Variables shared by grid nodes;
   global Q, cluster, vars, dbPath, skipped;
 
@@ -474,7 +474,8 @@ ParallelComputeSamplePoints := proc()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, db, skipped);
+  RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
+                                                              db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -508,7 +509,8 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   od;
   SynchronizeQuadrics(db);
 
-  numbers := ComputeEventsAlgebraicNumbers(Q, variables):
+  numbers := ComputeEventsAlgebraicNumbers(Q, variables);
+  numbers := convert(numbers, list);
   numbers := select(proc(x) return evalb(GetInterval(x[1])[2] >= 0); end proc, numbers):
   #Insert events into the register
   for i from 1 to nops(numbers) do
@@ -525,12 +527,12 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], 
-    numnodes=nodes);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
-  mesg:=kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg);
 end proc:
 
 
@@ -570,8 +572,8 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
-                 numnodes=nodes);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'], numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);
   fi;

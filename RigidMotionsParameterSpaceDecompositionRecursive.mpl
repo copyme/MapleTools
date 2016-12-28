@@ -46,10 +46,11 @@
 #
 RigidMotionsParameterSpaceDecompostionRecursive := module() 
   option package;
-  local  ComputeEventsAType2D, ComputeEventsBType2D, ComputeEventsAType1D, IsAsymptotic2D,
+  uses   RigidMotionsParameterSpaceCommon;
+  local  ComputeEventsAType2D, ComputeEventsBType2D, ComputeEventsAType1D,
          ComputeAsymptoticAAEvents2D, ComputeEventsAlgebraicNumbers2D, ComputeSamplePoints2D;
          
-  export LaunchComputeSamplePoints2D;
+  export IsAsymptotic2D, LaunchComputeSamplePoints2D;
 
 # Procedure: ComputeEventsAType2D
 #   Compute events such that a sweep line is tangent to a conic with respect to the first provided
@@ -159,7 +160,7 @@ ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list, grid::boolean)
   s:=proc(i::integer, vars2D::list)
     local rf, rootsF;
     local numbers := [], asy:
-     asy := IsAsymptotic2D(Q2D2[i], vars2D[-1]);
+     asy := RigidMotionsParameterSpaceDecompostionRecursive:-IsAsymptotic2D(Q2D2[i], vars2D[-1]);
      if not type(asy, constant) then
        factored := factors(asy)[2,..,1];
        for sqrFree in factored do
@@ -209,7 +210,7 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
       od;
     od;
   od;
-  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2D(Q2D2, vars2D)]));
+  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2D(Q2D2, vars2D, grid)]));
   return SortEvents(numbers);
 end proc:
 
