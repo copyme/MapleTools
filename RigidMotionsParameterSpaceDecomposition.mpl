@@ -44,15 +44,17 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
+
 RigidMotionsParameterSpaceDecompostion := module() 
   option package;
   uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
-  local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
+  local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics,
          ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
-         ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
+         ComputeEventsAlgebraicNumbers;
          
-  export LaunchComputeSamplePoints, LaunchResumeComputations;
+  export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
+         LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
   
   #Variables shared by grid nodes;
   global Q, cluster, vars, dbPath, skipped;
@@ -166,10 +168,10 @@ IsAsymptotic := proc(x::polynom, vars::list)
   Vc := Vector(3, [coeff(vec[3],vars[2]),coeff(vec[3],vars[3]),eval(vec[3],[vars[-2]=0,vars[-1]=0])]);
   VV := LinearAlgebra:-CrossProduct(Vb, Vc);
   if norm(VV,1) = 0 then
-    return {a=0};
+    return {{vars[1]=0}};
   fi;
-  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0});
-  if sols = NULL or sols = {} then
+  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0}, [vars[1]]);
+  if sols = NULL then
     return {};
   else
     return sols;
@@ -331,8 +333,9 @@ ComputeAsymptoticAAEventsGrid:=proc(Q, vars::list)
   fi;
   s:=proc(i::integer, vars::list)
     local numbers := [], sol, rootsF, tmp:
-    rootsF := IsAsymptotic(Q[i], vars):
+    rootsF := RigidMotionsParameterSpaceDecompostion:-IsAsymptotic(Q[i], vars):
     for sol in rootsF do
+      sol := op(sol);
       if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
@@ -364,7 +367,7 @@ ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
   fi;
   s:=proc(i::integer, j::integer, vars::list)
    local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
-   poly := IsAsymptoticIntersection(Q[i], Q[j], vars):
+   poly := RigidMotionsParameterSpaceDecompostion:-IsAsymptoticIntersection(Q[i], Q[j], vars);
    if poly = NULL or nops(poly) = 0 then
      return [];
    fi:
@@ -399,7 +402,7 @@ ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
   local factored, sqrFree:
 
   events:= {op(ComputeEventsATypeGrid( Q, [2, 3], vars )), op(ComputeEventsBTypeGrid( Q, 1, vars )),
-                                                       op(ComputeEventsCTypeGrid( Q, vars ))}:
+            op(ComputeEventsCTypeGrid( Q, vars ))};
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
@@ -407,9 +410,9 @@ ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
       for rf in rootsF do
         ArrayTools:-Append(numbers, [Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
         op(rf)[2][2] ), poly[2]]):
-      od:
-    od:
-  od:
+      od;
+    od;
+  od;
   
   numAsym:=ComputeAsymptoticAAEventsGrid(Q, vars);
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
@@ -506,8 +509,7 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   SynchronizeQuadrics(db);
 
   numbers := ComputeEventsAlgebraicNumbers(Q, variables):
-  numbers := convert(numbers, list):
-  numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := select(proc(x) return evalb(GetInterval(x[1])[2] >= 0); end proc, numbers):
   #Insert events into the register
   for i from 1 to nops(numbers) do
     InsertEvent(db, i, numbers[i][1], numbers[i][2])
@@ -551,13 +553,10 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   local db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
-
   mesg:=kernelopts(printbytes=false):
   Q := FetchQuadrics(db);
-
   events := FetchEvents(db);
   SortEvents(events);
-  
   cluster := ClusterEvents(events);
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
@@ -574,9 +573,9 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
     Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
                  numnodes=nodes);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);
   fi;
-  mesg:=kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg);
 
 end proc;
 
