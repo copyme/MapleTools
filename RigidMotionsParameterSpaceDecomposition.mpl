@@ -44,7 +44,6 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
-
 RigidMotionsParameterSpaceDecompostion := module() 
   option package;
   uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
@@ -55,7 +54,7 @@ RigidMotionsParameterSpaceDecompostion := module()
          
   export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
          LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
-  
+ 
   #Variables shared by grid nodes;
   global Q, cluster, vars, dbPath, skipped;
 
