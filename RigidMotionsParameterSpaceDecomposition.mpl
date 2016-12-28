@@ -55,7 +55,7 @@ RigidMotionsParameterSpaceDecompostion := module()
          
   export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
          LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
-  
+
   #Variables shared by grid nodes;
   global Q, cluster, vars, dbPath, skipped;
 
@@ -527,8 +527,8 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], 
-    numnodes=nodes);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
