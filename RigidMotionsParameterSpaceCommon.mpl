@@ -1,3 +1,59 @@
+# File: RigidMotionsParameterSpaceCommon.mpl  
+#
+# Description:
+#  This file contains functions used to obtain an arrangement 6 dimensional parameter space of 3D
+#  digitized rigid motions.
+#  This code has been written for research propose and its aim is to calculate a particular
+#  arrangement of quadrics. Therefore, it can or it cannot be useful in study of generic
+#  arrangements. The final output are sample points of full dimensional open cells.
+#
+#  The code was written in relation with the paper: Kacper Pluta, Guillaume Moroz, Yukiko
+#  Kenmochi, Pascal Romon, Quadric arrangement in classifying rigid motions of a 3D digital image,
+#  2016, https://hal.archives-ouvertes.fr/hal-01334257 referred late on as [Quadrics:2016].
+#
+# Author:
+#  Kacper Pluta - kacper.pluta@esiee.fr
+#  Laboratoire d'Informatique Gaspard-Monge - LIGM, A3SI, France
+#  Guillaume Moroz - guillaume.moroz@inria.fr 
+#  INRIA Nancy, France
+#
+# Date:
+#  11/12/2015 
+#
+# License:
+#  Simplified BSD License
+#
+# Copyright (c) 2015, Kacper Pluta, Guillaume Moroz
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL Kacper Pluta and Guillaume Moroz BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#
+
+RigidMotionsParameterSpaceCommon := module() 
+  option package;
+  uses   RigidMotionsMaplePrimesCode;
+  export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
+  OneVariableElimination, ClusterEvents, SortAlgebraicNumbers, SortEvents;
+
+
 # Procedure: CayleyTransform
 #   Compute Cayley transform for a 3x3 skew-symmetric matrix.
 #
@@ -95,7 +151,7 @@ EliminationResultant := proc( S::~set, vars::~list )
   return foldl( gcd, op(res) ):
 end proc:
 
-# Procedure: RemoveExponant
+# Procedure: RemoveExponants
 #    Removes exponants in an expression
 #
 # Parameters:
@@ -119,39 +175,12 @@ OneVariableElimination := proc( p, q, v)
         r := resultant(p, q, v); 
         r := RemoveExponants(r);
         return r;
-    elif  nops(indets({p,q}))=1 then
+    elif nops(indets({p,q}))=1 then
         return gcd(p, q);
     else
         return p;
     end if;
 end proc;
-
-
-# Procedure: SplitScan
-#   Can split a list into sublists of the same elements. Code written by Carl Love.
-#   See http://www.mapleprimes.com/questions/205030-Split-The-List-Into-Sublists-With-Identical
-#
-# Comments:
-#   The input list has to be sorted.
-#
-# Parameters:
-#   f            - a procedure used to check if two elements are different eg `<>`
-#   L            - a list to split
-#
-# Output:
-#   Returns a list of sublists where each of them contains elements which are same.
-# Call example:
-#   SplitList(`<>`,[1, 1, 2, 3, 3, 4, 9, 9, 0, 11]);
-SplitScan := proc(f, L::list) 
-  local R, k, j, last; R := Vector(); k := 0; last := 1; 
-  for j from 2 to nops(L) do 
-    if f(L[j-1], L[j], _rest) then 
-      k := k+1; R(k) := L[last .. j-1]; 
-      last := j 
-    end if 
-    end do;
-  [seq(k, k = R), L[last .. ()]]
-end proc:
 
 
 # Procedure: ClusterEvents
@@ -176,21 +205,6 @@ ClusterEvents := proc(numbers::list)
             end proc, numbers)
 end proc:
 
-# Procedure: Isort
-#   Sort elements and return their indices in original order after sorting
-#
-# Author:
-#   Alec Mihailovs - http://www.mapleprimes.com/posts/43507-Sorting-With-Indices#comment80473  
-# Parameters:
-#   L            - a container to be sorted. 
-#
-# Output:
-#   indices of original order after sorting, sorted collection.
-Isort:=proc(L)
-  local a;
-  a := sort([$1..nops(L)],(i,j)->L[i]<=L[j]); 
-  return a, [seq(L[i],i=a)]; 
-end:
 
 SortAlgebraicNumbers := proc (numbers::list)
   return sort( numbers, 
@@ -202,6 +216,7 @@ SortAlgebraicNumbers := proc (numbers::list)
         fi;
         end proc);
 end proc;
+
 
 SortEvents :=proc(events)
   # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
@@ -229,3 +244,4 @@ SortEvents :=proc(events)
   return events;
 end proc;
 
+end module;

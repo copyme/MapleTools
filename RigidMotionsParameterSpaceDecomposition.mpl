@@ -44,17 +44,20 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
-#RigidMotionsParameterSpaceDecompostion := module() 
-  #option package;
-  #local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics, IsAsymptotic, IsAsymptoticIntersection,
-         #ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
-         #ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
-         #ComputeEventsAlgebraicNumbers, ComputeSamplePoints, ParallelComputeSamplePoints;
+
+RigidMotionsParameterSpaceDecompostion := module() 
+  option package;
+  uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
+  local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics,
+         ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
+         ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
+         ComputeEventsAlgebraicNumbers;
          
-  #export LaunchOnGridComputeSamplePoints;
+  export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
+         LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
   
   #Variables shared by grid nodes;
-  #global Q, cluster, vars, dbPath;
+  global Q, cluster, vars, dbPath, skipped;
 
 # Procedure: GetQuadric
 #   Compute a quadric.
@@ -165,10 +168,10 @@ IsAsymptotic := proc(x::polynom, vars::list)
   Vc := Vector(3, [coeff(vec[3],vars[2]),coeff(vec[3],vars[3]),eval(vec[3],[vars[-2]=0,vars[-1]=0])]);
   VV := LinearAlgebra:-CrossProduct(Vb, Vc);
   if norm(VV,1) = 0 then
-    return {a=0};
+    return {{vars[1]=0}};
   fi;
-  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0});
-  if sols = NULL or sols = {} then
+  sols := solve({VV[1] = 0, VV[2] = 0,VV[3] = 0,vars[1]>=0}, [vars[1]]);
+  if sols = NULL then
     return {};
   else
     return sols;
@@ -330,8 +333,9 @@ ComputeAsymptoticAAEventsGrid:=proc(Q, vars::list)
   fi;
   s:=proc(i::integer, vars::list)
     local numbers := [], sol, rootsF, tmp:
-    rootsF := IsAsymptotic(Q[i], vars):
+    rootsF := RigidMotionsParameterSpaceDecompostion:-IsAsymptotic(Q[i], vars):
     for sol in rootsF do
+      sol := op(sol);
       if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
@@ -363,7 +367,7 @@ ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
   fi;
   s:=proc(i::integer, j::integer, vars::list)
    local numbers := [], sol, rootsF, poly, factored, sqrFree, rf;
-   poly := IsAsymptoticIntersection(Q[i], Q[j], vars):
+   poly := RigidMotionsParameterSpaceDecompostion:-IsAsymptoticIntersection(Q[i], Q[j], vars);
    if poly = NULL or nops(poly) = 0 then
      return [];
    fi:
@@ -398,7 +402,7 @@ ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
   local factored, sqrFree:
 
   events:= {op(ComputeEventsATypeGrid( Q, [2, 3], vars )), op(ComputeEventsBTypeGrid( Q, 1, vars )),
-                                                       op(ComputeEventsCTypeGrid( Q, vars ))}:
+            op(ComputeEventsCTypeGrid( Q, vars ))};
   for poly in events do
     factored := factors( poly[1] )[2,..,1]: 
     for sqrFree in factored do
@@ -406,9 +410,9 @@ ComputeEventsAlgebraicNumbers := proc( Q, vars::list )
       for rf in rootsF do
         ArrayTools:-Append(numbers, [Object( RealAlgebraicNumber, sqrFree, op(rf)[2][1],
         op(rf)[2][2] ), poly[2]]):
-      od:
-    od:
-  od:
+      od;
+    od;
+  od;
   
   numAsym:=ComputeAsymptoticAAEventsGrid(Q, vars);
   numbers:=ArrayTools:-Concatenate(2, numbers, Vector[row]([numAsym]));
@@ -453,11 +457,10 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
     sys := eval(sys, vars[1] = midpoint);
-    LaunchOnGridComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
+    LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
     SynchronizeSamplePoints(db);
     InsertSkippedCluster(db, i);
   end do;
-  return NULL;
 end proc:
 
 
@@ -471,12 +474,13 @@ ParallelComputeSamplePoints := proc()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, db, skipped);
+  RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
+                                                              db, skipped);
   Grid:-Barrier();
 end proc:
 
 
-# Procedure: LaunchOnGridComputeSamplePoints
+# Procedure: LaunchOnComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions using the grid framework
 #
 #
@@ -488,11 +492,10 @@ end proc:
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
-LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
-                                        kRange::list, nodes:=kernelopts(numcpus)) 
+LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
+                                  kRange::list, nodes:=kernelopts(numcpus)) 
   local numbers, firstEvent, R, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
-  global Q, cluster, vars, dbPath, skipped := [];
   vars:=variables;
   dbPath:=databasePath;
 
@@ -506,9 +509,9 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   od;
   SynchronizeQuadrics(db);
 
-  numbers := ComputeEventsAlgebraicNumbers(Q, variables):
-  numbers := convert(numbers, list):
-  numbers := remove( proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, numbers):
+  numbers := ComputeEventsAlgebraicNumbers(Q, variables);
+  numbers := convert(numbers, list);
+  numbers := select(proc(x) return evalb(GetInterval(x[1])[2] >= 0); end proc, numbers):
   #Insert events into the register
   for i from 1 to nops(numbers) do
     InsertEvent(db, i, numbers[i][1], numbers[i][2])
@@ -524,67 +527,58 @@ LaunchOnGridComputeSamplePoints := proc(variables::list, databasePath::string, n
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-    # writing to a file from a node. It seems that while fprintf is called it also calls printf
-    # which is a default printer function. Therefore, data are returned to node of ID 0. 
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath'], 
-    numnodes=nodes, printer=proc(x) return NULL end proc);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
-  mesg:=kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg);
 end proc:
 
 
-# Procedure: ResumeComputations
+# Procedure: LaunchResumeComputations
 #   Resumes computations of sample points for rotational part of rigid motions using
 #   the grid framework.
 #
 #
 # Parameters:
 #   variables     - list of variables in which the problem is expressed
-#   databasePath  - a path to a copy of the database CompRegister.db
+#   databasePath  - a path to a database file. If file does not exist it will be crated.
 #   nType         - neighborhood type: N1, N2 or N3.
 #   kRange        - range of grid lines passed as a list
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
-ResumeComputations := proc(variables::list, databasePath::string, nType::string, 
-                           kRange::list, grid::boolean, nodes:=kernelopts(numcpus))
+LaunchResumeComputations := proc(variables::list, databasePath::string, nType::string, 
+                           kRange::list, nodes:=kernelopts(numcpus))
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
-  global Q, cluster, vars, dbPath, skipped;
   vars:=variables;
   dbPath:=databasePath;
-
   mesg:=kernelopts(printbytes=false):
   Q := FetchQuadrics(db);
-
   events := FetchEvents(db);
   SortEvents(events);
-  
   cluster := ClusterEvents(events);
   # assign all quadrics to the second event
   cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
   # add the last slice twice but shifted to calculate correctly last quadrics
   rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, rootTmp):
+  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
+                       rootTmp);
   cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
 
   skipped := FetchSkippedClusters(db);
   
-  if grid and nodes > 1 then
+  if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    # We define printer as a procedure which returns NULL to avoid a memory leak problem while
-    # writing to a file from a node. It seems that while fprintf is called it also calls printf
-    # which is a default printer function. Therefore, data are returned to node of ID 0. 
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
-                 numnodes=nodes, printer=proc(x) return NULL end proc);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'], numnodes=nodes);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);
   fi;
-  mesg:=kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg);
 
 end proc;
 
-#end module:
+end module:
