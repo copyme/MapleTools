@@ -268,12 +268,14 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::intege
     for x in cluster2D[i] do 
       sys := [op(sys), op(Q2D[x[2]])]:
     end do:
+    print("in 2");
     sys := ListTools:-MakeUnique(sys);
     disjointEvent := DisjointRanges(cluster2D[i][1][1],cluster2D[i+1][1][1]);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
     # intersection of a line with  conics
     # never call eval with sets!
+    print("sys 2", sys);
     sys := eval(sys, vars2D[1] = midpoint):
     oneD := ComputeEventsAType1D(sys);
     if oneD = NULL then
@@ -334,6 +336,7 @@ LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer
   firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
                        rootTmp);
   cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
+  print("in 1");
 
   ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, variables, midpoint, db);
 end proc:

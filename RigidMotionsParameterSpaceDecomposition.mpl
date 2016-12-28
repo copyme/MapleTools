@@ -474,7 +474,8 @@ ParallelComputeSamplePoints := proc()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, db, skipped);
+  RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
+                                                              db, skipped);
   Grid:-Barrier();
 end proc:
 
@@ -508,7 +509,8 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   od;
   SynchronizeQuadrics(db);
 
-  numbers := ComputeEventsAlgebraicNumbers(Q, variables):
+  numbers := ComputeEventsAlgebraicNumbers(Q, variables);
+  numbers := convert(numbers, list);
   numbers := select(proc(x) return evalb(GetInterval(x[1])[2] >= 0); end proc, numbers):
   #Insert events into the register
   for i from 1 to nops(numbers) do
@@ -530,7 +532,7 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
   fi;
-  mesg:=kernelopts(printbytes=mesg):
+  mesg:=kernelopts(printbytes=mesg);
 end proc:
 
 
@@ -548,7 +550,7 @@ end proc:
 # Output:
 #   It populates a database given by databasePath.
 LaunchResumeComputations := proc(variables::list, databasePath::string, nType::string, 
-                           kRange::list, nodes:=kernelopts(numcpus))
+                                 nodes:=kernelopts(numcpus))
   local events, firstEvent, rootTmp, i, mesg;
   local db:=Object(ComputationRegister, databasePath);
   vars:=variables;
@@ -570,8 +572,8 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   
   if nodes > 1 then
     Grid:-Setup("local", numnodes=nodes):
-    Grid:-Launch(ParallelComputeSamplePoints, imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'],
-                 numnodes=nodes);
+    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
+                 imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'], numnodes=nodes);
   else
     ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);
   fi;
