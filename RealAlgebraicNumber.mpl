@@ -132,7 +132,28 @@ module RealAlgebraicNumber()
     else
         nprintf( "( %a, ]%a, %a[ )", self:-poly, self:-a, self:-b );
     end if;
-  end proc:
+  end proc;
+
+
+# Method: ModuleApply
+#   Define standard constructor.
+#
+  export ModuleApply::static := proc()
+   Object(RealAlgebraicNumber, args)
+  end proc;
+
+
+# Method: ModuleDeconstruct
+#   Provides information how to recreate an object after being serialized.
+#
+# Parameters:
+#   self::RealAlgebraicNumber        - a real algebraic number
+#
+  export ModuleDeconstruct::static := proc( self::RealAlgebraicNumber )
+    ('RealAlgebraicNumber')(self:-poly, self:-a, self:-b)
+  end proc;
+
+
 
 # Method: GetPolynomial
 #   A getter method to access the univariate polynomial of RealAlgebraicNumber.
