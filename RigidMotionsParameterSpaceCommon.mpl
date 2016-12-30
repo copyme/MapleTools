@@ -51,7 +51,7 @@ RigidMotionsParameterSpaceCommon := module()
   option package;
   uses   RigidMotionsMaplePrimesCode;
   export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
-  OneVariableElimination, ClusterEvents, SortAlgebraicNumbers, SortEvents;
+  OneVariableElimination, ClusterEvents, AlgebraicSort;
 
 
 # Procedure: CayleyTransform
@@ -184,46 +184,41 @@ end proc;
 
 
 # Procedure: ClusterEvents
-#   Compute sublists which contains equal real algebraic numbers
+#   Compute sublists which contains equal events
 #
 # Comments:
 #   Used to split calculations over a grid of nodes for parallel computations.
 #
 # Parameters:
-#   nType            - list of real algebraic numbers and quadrics related eg numbers[i] =
-#   [RealAlgebraicNumber,[Quadrics involved]]
+#   events  - a list (or Array) of Events (see type Event)
 #
 # Output:
-#   A list of sublists where each of them contains equal real algebraic numbers
-ClusterEvents := proc(numbers::list)
+#   A list of sublists where each of them contains equal events.
+ClusterEvents := proc(events)
   return SplitScan(
             proc (x, y) 
-              if not type(x[1], RealAlgebraicNumber) or not type(y[1], RealAlgebraicNumber) then
-                error "Elements are not of type RealAlgebraicNumber" 
+              if not type(x, Event) or not type(y, Event) then
+                error "Elements are not of type Event." 
               end if;
-            return evalb(Compare(x[1], y[1]) <> 0) 
-            end proc, numbers)
+            return evalb(Compare(x, y) <> 0) 
+            end proc, events)
 end proc:
 
 
-SortAlgebraicNumbers := proc (numbers::list)
-  return sort( numbers, 
-        proc( l, r ) 
-        if Compare( l, r ) = -1 then
-          return true:
-        else 
-          return false:
-        fi;
-        end proc);
-end proc;
-
-
-SortEvents :=proc(events)
+# Procedure: AlgebraicSort
+#   Sorts RealAlgebraicNumbers or Events. (see types: RealAlgebraicNumber and Event).
+#
+# Parameters:
+#   events  - a list or Array of RealAlgebraicNumbers or Events
+#
+# Output:
+#   A increasingly sorted list or Array.
+AlgebraicSort :=proc(events)
   # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
   if not StringTools:-Has(kernelopts(version), "Maple 2016") and upperbound(events) <> 0 then
       events := sort(events, 
                            proc( l, r ) 
-                             if Compare( l[1], r[1] ) = -1 then
+                             if Compare( l, r ) = -1 then
                                return true:
                              else 
                                return false:
@@ -233,7 +228,7 @@ SortEvents :=proc(events)
   elif StringTools:-Has(kernelopts(version), "Maple 2016") then
       sort['inplace'](events, 
                            proc( l, r ) 
-                             if Compare( l[1], r[1] ) = -1 then
+                             if Compare( l, r ) = -1 then
                                return true:
                              else 
                                return false:
@@ -245,3 +240,4 @@ SortEvents :=proc(events)
 end proc;
 
 end module;
+
