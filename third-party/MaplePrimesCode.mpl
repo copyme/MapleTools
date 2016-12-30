@@ -18,8 +18,12 @@
 
 RigidMotionsMaplePrimesCode := module() 
   option package;
+  
+  local SplitScanList, SplitScanArray;
   export SplitScan, Isort;
-# Procedure: SplitScan
+
+
+# Procedure: SplitScanList
 #   Can split a list into sublists of the same elements. Code written by Carl Love.
 #   See http://www.mapleprimes.com/questions/205030-Split-The-List-Into-Sublists-With-Identical
 #
@@ -33,8 +37,8 @@ RigidMotionsMaplePrimesCode := module()
 # Output:
 #   Returns a list of sublists where each of them contains elements which are same.
 # Call example:
-#   SplitList(`<>`,[1, 1, 2, 3, 3, 4, 9, 9, 0, 11]);
-SplitScan := proc(f, L::list) 
+#   SplitScanList(`<>`,[1, 1, 2, 3, 3, 4, 9, 9, 0, 11]);
+SplitScanList := proc(f, L::list) 
   local R, k, j, last; R := Vector(); k := 0; last := 1; 
   for j from 2 to nops(L) do 
     if f(L[j-1], L[j], _rest) then 
@@ -44,6 +48,62 @@ SplitScan := proc(f, L::list)
     end do;
   [seq(k, k = R), L[last .. ()]]
 end proc:
+
+
+# Procedure: SplitScanArray
+#   Can split a list into sublists of the same elements. Code written by Carl Love.
+#   See http://www.mapleprimes.com/questions/205030-Split-The-List-Into-Sublists-With-Identical
+#
+# Comments:
+#   The input list has to be sorted.
+#
+# Parameters:
+#   f            - a procedure used to check if two elements are different eg `<>`
+#   L            - an Array to split
+#
+# Output:
+#   Returns a list of sublists where each of them contains elements which are same.
+# Call example:
+#   SplitScanArray(`<>`,Array([1, 1, 2, 3, 3, 4, 9, 9, 0, 11]));
+SplitScanArray := proc(f, L::Array) 
+  uses ArrayTools;
+  local R, k, j, last; R := Vector(); k := 0; last := 1; 
+  for j from 2 to upperbound(L) do 
+    if f(L[j-1], L[j], _rest) then 
+      k := k+1; R(k) := L[last .. j-1]; 
+      last := j 
+    end if 
+    end do;
+  R:=Array([seq(k, k = R), L[last .. ()]]);
+  map[inplace](proc(x) Reshape(x, convert(Size(x),list))[1] end proc, R)
+end proc:
+
+
+# Procedure: SplitScan
+#   Can split a list (or an Array) into sublists (or Arrays) of the same elements. 
+#
+# Comments:
+#   The input list (or Array) has to be sorted.
+#
+# Parameters:
+#   f            - a procedure used to check if two elements are different eg `<>`
+#   L            - a list (or an Array)
+#
+# Output:
+#   Returns a list of sublists where each of them contains elements which are same.
+# Call example:
+#   SplitScan(`<>`,[1, 1, 2, 3, 3, 4, 9, 9, 0, 11]);
+SplitScan := proc(f, L)
+
+  if type(L, list) then
+    return SplitScanList(f, L);
+  elif type (L, Array) then
+    return SplitScanArray(f, L);
+  else
+    error "Split scan does not supports type: %1", whattype(L);
+  fi;
+end proc:
+
 
 # Procedure: Isort
 #   Sort elements and return their indices in original order after sorting

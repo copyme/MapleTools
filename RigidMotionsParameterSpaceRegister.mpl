@@ -160,9 +160,8 @@ module ComputationRegister()
 #   SynchronizeEvents has to be called to move inserted events
 #   into the register.
 #
-  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
-                                     num::RealAlgebraicNumber, quadrics::list)
-    local x::integer;
+  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer, event::Event)
+    local x::integer, num := GetRealAlgebraicNumber(event), quadrics := GetQuadrics(event);
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                              "cacheDB.RealAlgebraicNumber(polynom, " || 
                                              "IntervalL, IntervalR) VALUES (?, ?, ?);");
@@ -334,8 +333,8 @@ module ComputationRegister()
     s := proc(i::integer, allRows)
       local stmp, rowAlg, quads;
       rowAlg := allRows[i];
-      return [Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), parse(rowAlg[4])),
-                     [parse(rowAlg[5])]];
+      return Object(Event, Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), 
+                    parse(rowAlg[4])), [parse(rowAlg[5])]);
     end proc;
     return Array([Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1])]);
   end proc;
