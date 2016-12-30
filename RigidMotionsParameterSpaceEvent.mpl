@@ -35,7 +35,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-Event := module()
+EventType := module()
   option object;
    
   (*Real Algebraic Number*)
@@ -49,8 +49,8 @@ Event := module()
 #   Standard constructor / copy constructor
 #
 # Parameters:
-#   self::Event                   - a new object to be constructed
-#   proto::Event                  - a prototype object from which self is derived
+#   self::EventType                   - a new object to be constructed
+#   proto::EventType                  - a prototype object from which self is derived
 #   ranum::RealAlgebraicNumber    - a real algebraic number
 #   quadrics::rational            - a list of indices which corresponds to associated quadrics
 #
@@ -61,8 +61,8 @@ Event := module()
 #  "Invalid range. A range is valid when: a <= b."
 #  "Degree of %1 is invalid."
 #
-  export ModuleCopy::static := proc( self::Event,
-                                     proto::Event,
+  export ModuleCopy::static := proc( self::EventType,
+                                     proto::EventType,
                                      ranum::RealAlgebraicNumber,
                                      quadrics::list, $ )
     if _passed = 2 then
@@ -76,31 +76,43 @@ Event := module()
 
 
 # Method: ModulePrint
-#   Standard printout of an object of type Event.
+#   Standard printout of an object of type EventType.
 #
 # Parameters:
-#   self::Event                  - an event
+#   self::EventType                  - an event
 #
-  export ModulePrint::static := proc( self::Event ) 
-    local ranumTmp := self:-ranum;
-    if GetInterval(ranumTmp)[1] = GetInterval(ranumTmp)[2] then
-        nprintf("( %a, [%a, %a] ), %a", GetPolynomial(ranumTmp), GetInterval(ranumTmp)[1], 
-                GetInterval(ranumTmp)[2], self:-quadrics);
-    else
-        nprintf( "( %a, ]%a, %a[ ), %a", GetPolynomial(ranumTmp), GetInterval(ranumTmp)[1], 
-                GetInterval(ranumTmp)[2], self:-quadrics );
-    end if;
+  export ModulePrint::static := proc( self::EventType )
+   nprintf("(%a, %a)", self:-ranum, self:-quadrics); 
   end proc;
 
+
+# Method: ModuleApply
+#   Define standard constructor.
+#
+  export ModuleApply::static := proc()
+   Object(EventType, args)
+  end proc;
+
+
+# Method: ModuleDeconstruct
+#   Provides information how to recreate an object after being serialized.
+#
+# Parameters:
+#   self::EventType                  - an event
+#
+  export ModuleDeconstruct::static := proc( self::EventType )
+    ('EventType')(('RealAlgebraicNumber')(GetPolynomial(self:-ranum), GetInterval(self:-ranum)[1],
+    GetInterval(self:-ranum)[2]), self:-quadrics)
+  end proc;
 
 # Method: GetRealAlgebraicNumber
 #   Getter of the real algebraic number.
 #
 # Parameters:
-#   self::Event                  - an event
+#   self::EventType                  - an event
 # Output:
 #   Associated real algebraic number.
-  export GetRealAlgebraicNumber::static := proc(self::Event)
+  export GetRealAlgebraicNumber::static := proc(self::EventType)
     return self:-ranum;
   end proc;
 
@@ -109,10 +121,10 @@ Event := module()
 #   Getter of the list of indices.
 #
 # Parameters:
-#   self::Event                  - an event
+#   self::EventType                  - an event
 # Output:
 #   Associated quadrics' indices.
-  export GetQuadrics::static := proc(self::Event)
+  export GetQuadrics::static := proc(self::EventType)
     return self:-quadrics;
   end proc;
 
@@ -121,13 +133,13 @@ Event := module()
 #   A method used to compare two events.
 #
 # Parameters:
-#   l::Event      - an event
-#   r::Event      - an event
+#   l::EventType      - an event
+#   r::EventType      - an event
 #
 # Output:
 #   -1 when l is smaller than r, 0 when they are equal and 1 when l is bigger than r.
 #
-  export Compare::static := proc( l::Event, r::Event, $ )
+  export Compare::static := proc( l::EventType, r::EventType, $ )
     return RealAlgebraicNumber:-Compare(l:-ranum, r:-ranum);
   end proc;
 

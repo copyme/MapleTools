@@ -150,40 +150,34 @@ end proc:
 # Parameters:
 #   Q2D2          - a set of conics
 #   vars2D       - a list of the variables
-#   grid       - if true then computations are performed in the parallel computation framework
-#                called Grid (see Maple documentation)
 #
 # Output: Real
-#   A list of real algebraic numbers and indexes of conics: [ RealAlgebraicNumber, [index]].
-ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list, grid::boolean)
+#   A list of Events (see EventType).
+ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list)
   local out := [], s, factored, sqrFree;
   s:=proc(i::integer, vars2D::list)
     local rf, rootsF;
-    local numbers := [], asy:
+    local events := [], asy:
      asy := RigidMotionsParameterSpaceDecompostionRecursive:-IsAsymptotic2D(Q2D2[i], vars2D[-1]);
      if not type(asy, constant) then
        factored := factors(asy)[2,..,1];
        for sqrFree in factored do
          rootsF := RootFinding:-Isolate(sqrFree, vars2D[1], output='interval');
          for rf in rootsF do
-           numbers:=[op(numbers), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-           op(rf)[2][2]), [i]]];
+           events:=[op(events), EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], op(rf)[2][2]),
+                                          [i])];
          od;
        od;
      fi:
-    return numbers;
+    return events;
   end proc:
-  if grid then
-    out:=select(proc(x) return evalb(x<>[]) end, [Grid:-Seq(s(i, vars2D),i=1..nops(Q2D2))]);
-  else
-    out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
-  fi;
+  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
   return ListTools:-Flatten(out, 1);
 end:
 
 
 # Procedure: ComputeEventsAlgebraicNumbers2D
-#   Compute and sort events as algebraic numbers 
+#   Compute and sort events
 #
 # Parameters:
 #   Q2D2     - set of conics
@@ -194,24 +188,24 @@ end:
 # Output:
 #   Sorted Array of real algebraic numbers
 ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
-  local events, rootsF, rf, poly;
-  local numbers := Array([]);
+  local univs, rootsF, rf, poly;
+  local events := Array([]);
   local factored, sqrFree;
 
-  events:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
+  univs:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
             vars2D))];
-  for poly in events do
+  for poly in univs do
     factored := factors(poly[1])[2,..,1];
     for sqrFree in factored do
       rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
       for rf in rootsF do
-        ArrayTools:-Append(numbers, [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-        op(rf)[2][2] ), poly[2]]);
+        ArrayTools:-Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], 
+                           op(rf)[2][2]), poly[2]));
       od;
     od;
   od;
-  ArrayTools:-Concatenate(2, numbers, Vector[row]([ComputeAsymptoticAAEvents2D(Q2D2, vars2D, grid)]));
-  return SortEvents(numbers);
+  ArrayTools:-Extend(events, ComputeAsymptoticAAEvents2D(Q2D2, vars2D), inplace=true);
+  return AlgebraicSort(events);
 end proc:
 
 
@@ -237,9 +231,8 @@ ComputeEventsAType1D := proc(Q2D2::list)
       od;
    fi;
   od;
-    numbers := convert(numbers, list); 
-    numbers := SortAlgebraicNumbers(numbers);
-    return ListTools:-MakeUnique(numbers, 1, proc(a,b) evalb(Compare(a,b) = 0) end proc);
+  numbers := AlgebraicSort(numbers);
+  return ListTools:-MakeUnique(convert(numbers, list), 1, proc(a,b) evalb(Compare(a,b) = 0) end proc);
 end proc:
 
 
@@ -257,27 +250,26 @@ end proc:
 #
 # Output:
 #   It populates a database, given by databasePath, with sample points.
-ComputeSamplePoints2D := proc(Q2D, cluster2D::list, first::integer, last::integer,
+ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
-  local disjointEvent::list, oneD::list, oneDNeg::list;
+  local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
   for i from first to last do 
     sys := []: 
     for x in cluster2D[i] do 
-      sys := [op(sys), op(Q2D[x[2]])]:
+      sys := [op(sys), op(Q2D[GetQuadrics(x)])];
     end do:
-    print("in 2");
     sys := ListTools:-MakeUnique(sys);
-    disjointEvent := DisjointRanges(cluster2D[i][1][1],cluster2D[i+1][1][1]);
+    ranumI := GetRealAlgebraicNumber(cluster2D[i][1]);
+    ranumJ := GetRealAlgebraicNumber(cluster2D[i+1][1]);
+    disjointEvent:=DisjointRanges(ranumI, ranumJ);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
-    # intersection of a line with  conics
     # never call eval with sets!
-    print("sys 2", sys);
-    sys := eval(sys, vars2D[1] = midpoint):
+    sys := eval(sys, vars2D[1] = midpoint);
     oneD := ComputeEventsAType1D(sys);
     if oneD = NULL then
       next;
@@ -321,25 +313,18 @@ LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer
   local events, firstEvent, rootTmp;
   local Q2D := ListTools:-MakeUnique([op(variables), op(s)]), cluster2D;
   if grid and nops(s) > 20 then
-     events := convert(ComputeEventsAlgebraicNumbers2D(Q2D, true, variables), list);
+     events := ComputeEventsAlgebraicNumbers2D(Q2D, true, variables);
   else
-     events := convert(ComputeEventsAlgebraicNumbers2D(Q2D, false, variables), list);
+     events := ComputeEventsAlgebraicNumbers2D(Q2D, false, variables);
   fi;
-  events := remove(proc(x) return evalb(GetInterval(x[1])[2] < 0); end proc, events);
+  events := remove[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] < 0) end proc, 
+                            events);
   if upperbound(events) = 0 then
     return NULL;
   fi;
   cluster2D := ClusterEvents(events);
-
-  # assign all conics to the first event
-  cluster2D := [[[cluster2D[1][1][1], [seq(1..nops(Q2D))]]], op(cluster2D[2..])]:
-  rootTmp:= GetInterval(cluster2D[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
-                       rootTmp);
-  cluster2D := [op(cluster2D), [[firstEvent, cluster2D[-1][1][2]]]];
-  print("in 1");
-
-  ComputeSamplePoints2D(Q2D, cluster2D, 1, nops(cluster2D) - 1, variables, midpoint, db);
+  AdjustCluster(cluster2D, upperbound(Q2D), variables);
+  ComputeSamplePoints2D(Q2D, cluster2D, 1, upperbound(cluster2D) - 1, variables, midpoint, db);
 end proc:
 
 end module;

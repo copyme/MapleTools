@@ -149,18 +149,13 @@ module ComputationRegister()
 # Parameters:
 #   self::ComputationRegister      - an instance of ComputationRegister
 #   idNum::integer                 - an identifier of a given event
-#   num::RealAlgebraicNumber       - a real algebraic number representing
-#                                    a given event
-#   quadrics::list                 - a list of integer ids' of quadrics
-#                                    each of which has to be the same id
-#                                    as ones used with InsertQuadric
-#
+#   event::EventType               - a given event
 # Comments:
 #   Each event is inserted into a cache, memory stored, database.
 #   SynchronizeEvents has to be called to move inserted events
 #   into the register.
 #
-  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer, event::Event)
+  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer, event::EventType)
     local x::integer, num := GetRealAlgebraicNumber(event), quadrics := GetQuadrics(event);
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                              "cacheDB.RealAlgebraicNumber(polynom, " || 
@@ -333,7 +328,7 @@ module ComputationRegister()
     s := proc(i::integer, allRows)
       local stmp, rowAlg, quads;
       rowAlg := allRows[i];
-      return Object(Event, Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), 
+      return Object(EventType, Object(RealAlgebraicNumber, parse(rowAlg[2]), parse(rowAlg[3]), 
                     parse(rowAlg[4])), [parse(rowAlg[5])]);
     end proc;
     return Array([Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1])]);

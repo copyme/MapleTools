@@ -50,10 +50,10 @@ RigidMotionsParameterSpaceDecompostion := module()
   uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
   local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics,
          ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
-         ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEventsGrid, 
-         ComputeEventsFromAlgebraicNumbers;
+         ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEvents, 
+         ComputeEventsFromAlgebraicNumbers, SerializeCluster, IsAsymptotic;
          
-  export IsAsymptotic, IsAsymptoticIntersection, LaunchComputeSamplePoints, 
+  export IsAsymptoticIntersection, LaunchComputeSamplePoints, 
          LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
 
   #Variables shared by grid nodes;
@@ -325,21 +325,21 @@ end proc:
 #
 # Output:
 #   A list of real algebraic numbers and indexes of quadrics -- events.
-ComputeAsymptoticAAEventsGrid:=proc(Q, vars::list)
+ComputeAsymptoticAAEvents:=proc(Q, vars::list)
   local listTmp := [], s;
   if nops(vars) < 3 then
     error "Expected at least three a variables!";
   fi;
   s:=proc(i::integer, vars::list)
     local events := [], sol, rootsF, tmp:
-    rootsF := RigidMotionsParameterSpaceDecompostion:-IsAsymptotic(Q[i], vars):
+    rootsF := IsAsymptotic(Q[i], vars):
     for sol in rootsF do
       sol := op(sol);
       if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
-      events:=[op(events), Object(Event, Object(RealAlgebraicNumber, lhs(sol) * denom(rhs(sol)) -
-      numer(rhs(sol)), rhs(sol), rhs(sol)), [i])]:
+      events:=[op(events), EventType(RealAlgebraicNumber(lhs(sol) * denom(rhs(sol)) -
+      numer(rhs(sol)), rhs(sol), rhs(sol)), [i])];
     od:
     return events;
   end proc:
@@ -373,8 +373,8 @@ ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
    for sqrFree in factored do
       rootsF := RootFinding:-Isolate(sqrFree, op(indets(sqrFree)), output='interval');
       for rf in rootsF do
-        events := [op(events), [Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
-        op(rf)[2][2]), [i,j]]]; 
+        events := [op(events), sprintf("%a", EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1],
+        op(rf)[2][2]), [i,j]))]; 
       od:
    od:
    return events;
@@ -382,7 +382,7 @@ ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
   listTmp := select(proc(x) return evalb(x<>[]) end,
   [Grid:-Seq(seq(s(i, j, vars),j=i+1..nops(Q)),i=1..nops(Q))]);
   listTmp := ListTools:-Flatten(listTmp, 1);
-  listTmp := Threads:-Map(proc(x) Object(Event, x[1], x[2]) end proc, listTmp);
+  return Threads:-Map(proc(x) eval(parse(x)) end proc, listTmp);
 end proc:
 
 
@@ -407,12 +407,12 @@ ComputeEventsFromAlgebraicNumbers := proc( Q, vars::list )
     for sqrFree in factored do
       rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
       for rf in rootsF do
-        ArrayTools:-Append(events, 
-        Object(Event, Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1], op(rf)[2][2]), poly[2])):
+        ArrayTools:-Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], 
+                           op(rf)[2][2]), poly[2])):
       od;
     od;
   od;
-  numAsym:=ComputeAsymptoticAAEventsGrid(Q, vars);
+  numAsym:=ComputeAsymptoticAAEvents(Q, vars);
   ArrayTools:-Extend(events, numAsym, inplace=true);
   numAsym:=ComputeAsymptoticABEventsGrid(Q, vars);
   ArrayTools:-Extend(events, numAsym, inplace=true);
@@ -438,7 +438,7 @@ end proc:
 #   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints := proc (Q, cluster::Array, first::integer, last::integer, 
                              vars::list, db::ComputationRegister, skipped::list:=[]) 
-local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
+local i, x, midpoint, sys, samplePoints, disjointEvent:=[], ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(cluster) <= last then 
     error "Bounds of the cluster range are incorrect.": 
   end if:
@@ -448,9 +448,12 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[]:
     fi:
     sys := []: 
     for x in cluster[i] do 
-      sys := [op(sys), op(Q[x[2]])]:
+      sys := [op(sys), op(Q[GetQuadrics(x)])];
     end do:
-    disjointEvent:=DisjointRanges(cluster[i][1][1],cluster[i+1][1][1]);
+    sys := ListTools:-MakeUnique(sys);
+    ranumI := GetRealAlgebraicNumber(cluster[i][1]);
+    ranumJ := GetRealAlgebraicNumber(cluster[i+1][1]);
+    disjointEvent:=DisjointRanges(ranumI, ranumJ);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
     sys := eval(sys, vars[1] = midpoint);
@@ -471,12 +474,20 @@ ParallelComputeSamplePoints := proc()
   numNodes := Grid:-NumNodes();
   # cluster-1 because the last cluster is a doubled cluster[-2]
   n := trunc((upperbound(cluster)-1)/numNodes);
-  print(cluster[2][1]);
-  print(cluster[1][1]);
+  # recreate cluster
+  Threads:-Map[inplace](proc(x) map[inplace](proc(y) eval(parse(y)) end proc, x) end proc, cluster);
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
                                                               db, skipped);
   Grid:-Barrier();
 end proc:
+
+
+# Procedure: SerializeCluster
+#   Change objects of type EventType into strings.
+#
+SerializeCluster := proc()
+  Threads:-Map[inplace](proc(x) map[inplace](proc(y) sprintf("%a", y) end proc, x) end proc, cluster);
+end proc;
 
 
 # Procedure: LaunchOnComputeSamplePoints
@@ -497,9 +508,8 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   local db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
-
-  mesg:=kernelopts(printbytes=false):
-  R := CayleyTransform(variables):
+  mesg:=kernelopts(printbytes=false);
+  R := CayleyTransform(variables);
   Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
        op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
        op(ComputeSetOfQuadrics(R, nType, 3, kRange)), op(variables)]);
@@ -517,20 +527,14 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   od;
   SynchronizeEvents(db);
   cluster := ClusterEvents(events);
-  # assign all quadrics to the first event in the first cluster
-  cluster[1][1] := Object(Event, GetRealAlgebraicNumber(cluster[1][1]), [seq(1..nops(Q))]);
-  # add the last slice twice but shifted to calculate correctly last quadrics
-  boundTmp:= GetInterval(GetRealAlgebraicNumber(cluster[-1][1]))[2]+1;
-  lastEvent := Object(RealAlgebraicNumber, denom(boundTmp)*variables[1]-numer(boundTmp), boundTmp, 
-                       boundTmp);
-  ArrayTools:-Append(cluster, Array([[Object(Event, lastEvent, GetQuadrics(cluster[-1][1]))]]));
-
+  AdjustCluster(cluster, upperbound(Q), variables);
   if nodes > 1 then
+    SerializeCluster();
     Grid:-Setup("local", numnodes=nodes):
     Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
                  imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes);
   else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);             
+    ComputeSamplePoints(Q, cluster, 1, upperbound(cluster) - 1, variables, db, skipped);             
   fi;
   mesg:=kernelopts(printbytes=mesg);
 end proc:
@@ -560,17 +564,10 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   events := FetchEvents(db);
   events := AlgebraicSort(events);
   cluster := ClusterEvents(events);
-  # assign all quadrics to the second event
-  cluster := [[[cluster[1][1][1], [seq(1..nops(Q))]]], op(cluster[2..])]:
-  # add the last slice twice but shifted to calculate correctly last quadrics
-  rootTmp:= GetInterval(cluster[-1][1][1])[2]+1;
-  firstEvent := Object(RealAlgebraicNumber, denom(rootTmp)*variables[1]-numer(rootTmp), rootTmp, 
-                       rootTmp);
-  cluster := [op(cluster), [[firstEvent ,cluster[-1][1][2]]]]:
-
   skipped := FetchSkippedClusters(db);
-  
+  AdjustCluster(cluster, upperbound(Q), variables);
   if nodes > 1 then
+    SerializeCluster();
     Grid:-Setup("local", numnodes=nodes):
     Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
                  imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'], numnodes=nodes);

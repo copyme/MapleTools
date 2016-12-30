@@ -51,7 +51,7 @@ RigidMotionsParameterSpaceCommon := module()
   option package;
   uses   RigidMotionsMaplePrimesCode;
   export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
-  OneVariableElimination, ClusterEvents, AlgebraicSort;
+  OneVariableElimination, ClusterEvents, AlgebraicSort, AdjustCluster;
 
 
 # Procedure: CayleyTransform
@@ -182,6 +182,16 @@ OneVariableElimination := proc( p, q, v)
     end if;
 end proc;
 
+AdjustCluster := proc(clusterLink::uneval, quadNum::integer, variables::list)
+  local cluster := eval(clusterLink);
+  local boundTmp, lastEvent;
+  # assign all quadrics to the first event in the first cluster
+  cluster[1][1] := EventType(GetRealAlgebraicNumber(cluster[1][1]), [seq(1..quadNum)]);
+  # add the last slice twice but shifted to calculate correctly last quadrics
+  boundTmp:= GetInterval(GetRealAlgebraicNumber(cluster[-1][1]))[2]+1;
+  lastEvent := RealAlgebraicNumber(denom(boundTmp)*variables[1]-numer(boundTmp), boundTmp, boundTmp);
+  ArrayTools:-Append(cluster, Array([EventType(lastEvent, GetQuadrics(cluster[-1][1]))]));
+end proc;
 
 # Procedure: ClusterEvents
 #   Compute sublists which contains equal events
@@ -190,15 +200,15 @@ end proc;
 #   Used to split calculations over a grid of nodes for parallel computations.
 #
 # Parameters:
-#   events  - a list (or Array) of Events (see type Event)
+#   events  - a list (or Array) of Events (see type EventType)
 #
 # Output:
 #   A list of sublists where each of them contains equal events.
 ClusterEvents := proc(events)
   return SplitScan(
             proc (x, y) 
-              if not type(x, Event) or not type(y, Event) then
-                error "Elements are not of type Event." 
+              if not type(x, EventType) or not type(y, EventType) then
+                error "Elements are not of type EventType." 
               end if;
             return evalb(Compare(x, y) <> 0) 
             end proc, events)
@@ -206,7 +216,7 @@ end proc:
 
 
 # Procedure: AlgebraicSort
-#   Sorts RealAlgebraicNumbers or Events. (see types: RealAlgebraicNumber and Event).
+#   Sorts RealAlgebraicNumbers or Events. (see types: RealAlgebraicNumber and EventType).
 #
 # Parameters:
 #   events  - a list or Array of RealAlgebraicNumbers or Events
