@@ -362,8 +362,9 @@ module ComputationRegister()
   export NumberOfClusters::static := proc(self::ComputationRegister)
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(cluster_id) " ||
                                             "FROM RealAlgebraicNumber;"); 
-    # For some reasons Fetch() does not work!
-    local num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
+    local num::integer;
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    num := Database[SQLite]:-Fetch(stmt, 0);
     Database[SQLite]:-Finalize(stmt);
     return num;
   end proc;

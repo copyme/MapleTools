@@ -192,8 +192,8 @@ ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
   local events := Array([]);
   local factored, sqrFree;
 
-  univs:= [op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
-            vars2D))];
+  univs:= {op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
+            vars2D))};
   for poly in univs do
     factored := factors(poly[1])[2,..,1];
     for sqrFree in factored do
