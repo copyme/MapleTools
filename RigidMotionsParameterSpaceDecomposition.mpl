@@ -54,7 +54,8 @@ RigidMotionsParameterSpaceDecompostion := module()
          ComputeEventsFromAlgebraicNumbers, SerializeCluster, IsAsymptotic;
          
   export IsAsymptoticIntersection, LaunchComputeSamplePoints, 
-         LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints;
+         LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints,
+         ParallelComputeSamplePointsResume;
 
   #Variables shared by grid nodes;
   global Q, cluster, vars, dbPath, skipped;
@@ -504,7 +505,7 @@ end proc;
 #   It populates a database given by databasePath.
 LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
                                   kRange::list, nodes:=kernelopts(numcpus)) 
-  local events, lastEvent, R, boundTmp, i, mesg;
+  local events, lastEvent, R, boundTmp, i, j, k, mesg;
   local db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
@@ -521,16 +522,22 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   events := ComputeEventsFromAlgebraicNumbers(Q, variables);
   events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
                            events);
-  #Insert events into the register
-  for i from 1 to upperbound(events) do
-    InsertEvent(db, i, events[i]);
-  od;
-  SynchronizeEvents(db);
+ 
   cluster := ClusterEvents(events);
   AdjustCluster(cluster, upperbound(Q), variables);
+  #Insert events into the register
+  k:=1;
+  for i from 1 to upperbound(cluster) do
+    for j from 1 to upperbound(cluster[i]) do
+      InsertEvent(db, i, k, cluster[i][j]);
+      k:=k+1;
+    od;
+  od;
+  SynchronizeEvents(db);
+
   if nodes > 1 then
     SerializeCluster();
-    Grid:-Setup("local", numnodes=nodes):
+    Grid:-Setup("local"):
     Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
                  imports=['Q', 'cluster', 'vars', 'dbPath'], numnodes=nodes);
   else
@@ -539,6 +546,25 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   mesg:=kernelopts(printbytes=mesg);
 end proc:
 
+
+# Procedure: ParallelComputeSamplePointsResume
+#   Computes sample points for rotational part of rigid motions. It should be call via Grid
+#   framework.
+ParallelComputeSamplePointsResume := proc()
+  local me, numNodes, n, cluster, skipped;
+  local db:=Object(ComputationRegister, dbPath);
+  me := Grid:-MyNode();
+  numNodes := Grid:-NumNodes();
+  skipped := FetchSkippedClusters(db);
+  # cluster-1 because the last cluster is a doubled cluster[-2]
+  n := trunc((NumberOfClusters(db)-1)/numNodes);
+  # recreate cluster
+  skipped := FetchSkippedClusters(db);
+  cluster := FetchClusters(db, me* n+1,(me+1)*n+1); 
+  RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
+                                                              db, skipped);
+  Grid:-Barrier();
+end proc:
 
 # Procedure: LaunchResumeComputations
 #   Resumes computations of sample points for rotational part of rigid motions using
@@ -561,21 +587,10 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   dbPath:=databasePath;
   mesg:=kernelopts(printbytes=false):
   Q := FetchQuadrics(db);
-  events := FetchEvents(db);
-  events := AlgebraicSort(events);
-  cluster := ClusterEvents(events);
-  skipped := FetchSkippedClusters(db);
-  AdjustCluster(cluster, upperbound(Q), variables);
-  if nodes > 1 then
-    SerializeCluster();
-    Grid:-Setup("local", numnodes=nodes):
-    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
-                 imports=['Q', 'cluster', 'vars', 'dbPath', 'skipped'], numnodes=nodes);
-  else
-    ComputeSamplePoints(Q, cluster, 1, nops(cluster) - 1, variables, db, skipped);
-  fi;
+  Grid:-Setup("local");
+  Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePointsResume, 
+               imports=['Q', 'vars', 'dbPath'], numnodes=nodes);
   mesg:=kernelopts(printbytes=mesg);
-
 end proc;
 
 end module:

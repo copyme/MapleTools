@@ -83,8 +83,8 @@ module ComputationRegister()
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE Quadric (ID PRIMARY KEY NOT " ||
         "NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE RealAlgebraicNumber (ID " ||
-        "INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT " ||
-        "NULL, IntervalR TEXT NOT NULL);");
+        "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
+        "TEXT NOT NULL, cluster_id INTEGER NOT NULL);");
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE Events (RANumID INTEGER " ||
         "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
         "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
@@ -94,9 +94,9 @@ module ComputationRegister()
         "INTEGER UNIQUE NOT NULL);");
       fi;
 
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.RealAlgebraicNumber " ||
-      "(ID INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, " ||
-      "IntervalR TEXT NOT NULL);");
+      Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
+      "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
+      "TEXT NOT NULL, cluster_id INTEGER NOT NULL);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
       "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
@@ -155,14 +155,18 @@ module ComputationRegister()
 #   SynchronizeEvents has to be called to move inserted events
 #   into the register.
 #
-  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer, event::EventType)
+  export InsertEvent::static := proc(self::ComputationRegister, idCluster::integer, idNum::integer,
+                                     event::EventType)
     local x::integer, num := GetRealAlgebraicNumber(event), quadrics := GetQuadrics(event);
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
-                                             "cacheDB.RealAlgebraicNumber(polynom, " || 
-                                             "IntervalL, IntervalR) VALUES (?, ?, ?);");
-    Database[SQLite]:-Bind(stmt, 1, sprintf("%a", GetPolynomial(num)));
-    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetInterval(num)[1]));
-    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[2]));
+                                             "cacheDB.RealAlgebraicNumber(ID, polynom, " || 
+                                             "IntervalL, IntervalR, cluster_id) " ||
+                                             "VALUES (?, ?, ?, ?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, idNum);
+    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetPolynomial(num)));
+    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[1]));
+    Database[SQLite]:-Bind(stmt, 4, sprintf("%a", GetInterval(num)[2]));
+    Database[SQLite]:-Bind(stmt, 5, idCluster);
     Database[SQLite]:-Step(stmt);
     Database[SQLite]:-Finalize(stmt);
     for x in quadrics do
@@ -332,6 +336,36 @@ module ComputationRegister()
                     parse(rowAlg[4])), [parse(rowAlg[5])]);
     end proc;
     return Array([Threads:-Seq(s(i, allRows),i=1..upperbound(allRows)[1])]);
+  end proc;
+
+
+  export FetchClusters::static := proc(self::ComputationRegister, first::integer, last::integer)
+    local allRows, i, x, cluster:=Array([]);
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
+    "IntervalR, group_concat(QuadID) AS quads, cluster_id FROM RealAlgebraicNumber JOIN EVENTS " ||
+    "ON ID = RANUMID WHERE cluster_id BETWEEN ? AND ? GROUP BY ID ORDER BY ID;"); 
+    Database[SQLite]:-Bind(stmt, 1, first);    
+    Database[SQLite]:-Bind(stmt, 2, last);
+    allRows := Database[SQLite]:-FetchAll(stmt);
+    Database[SQLite]:-Finalize(stmt);
+    # Initialize clusters
+    map[inplace](proc(x) cluster(x):=Array([]) end proc, [seq(i, i=first..last)]);
+
+    for i from 1 to upperbound(allRows)[1] do
+      x := allRows[i];
+      ArrayTools:-Append(cluster[x[6]], EventType(RealAlgebraicNumber(parse(x[2]), parse(x[3]), 
+                    parse(x[4])), [parse(x[5])]));
+    od;
+    return cluster;
+  end proc;
+
+  export NumberOfClusters::static := proc(self::ComputationRegister)
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(cluster_id) " ||
+                                            "FROM RealAlgebraicNumber;"); 
+    # For some reasons Fetch() does not work!
+    local num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
+    Database[SQLite]:-Finalize(stmt);
+    return num;
   end proc;
 
 end module;
