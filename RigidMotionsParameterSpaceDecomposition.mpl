@@ -228,25 +228,20 @@ end proc:
 # Comment:
 #  - only the first direction is supported since EliminationResultant is used
 ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
-  local s:
+  local s, result := Array([]);
   if nops(vars) < 3 then
     error "Expected at least three variables!";
   fi;
   s := proc(i::integer, vars::list)
-   local sys, univ, sol;
+   local sys, univ;
    local q := Q[i];
    sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
-   univ := EliminationResultant(sys, vars):
-   if not type( univ, constant ) then
-     sol := RootFinding:-Isolate(univ):
-     if nops(sol) > 0 then
-       return [univ, [i]]:
-     else
-       return NULL:
-     fi:
-   fi:
+   univ := EliminationResultant(sys, vars);
+   return SerializeEvents(GenerateEvents(univ, [i]));
   end proc:
-  return [Grid:-Seq(s(i, vars),i=1..nops(Q))]:
+  map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
+                                             [Grid:-Seq(s(i, vars), i=1..nops(Q))]);
+  return ReconstructEvents(result);
 end proc:
 
 
@@ -263,27 +258,22 @@ end proc:
 #   Indexes of quadrics which intersect and a component of a vector product of 
 #   their gradients in given direction have a common root.
 ComputeEventsBTypeGrid := proc( Q, dir::integer, vars::list )
-  local s:
+  local s, result := Array([]);
   if nops(vars) < 3 then
     error "Expected at least three a variables!";
   fi;
   s := proc(i, j, vars::list)
-    local p, prod, univ, sys, sol:
+    local p, prod, univ, sys:
     prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], vars ),
                                     VectorCalculus:-Gradient( Q[j], vars ) )[dir]:
-    sys := { Q[i], Q[j], prod }:
-    univ := EliminationResultant(sys, vars):
-    if not type( univ, constant ) then
-      sol := RootFinding:-Isolate(univ):
-      if nops(sol) > 0 then
-        return [univ, [i,j]]:
-      else
-        return NULL:
-      fi;
-    fi:
+    sys := { Q[i], Q[j], prod };
+    univ := EliminationResultant(sys, vars);
+    return SerializeEvents(GenerateEvents(univ, [i, j]));
   end proc:
-  return [Grid:-Seq(seq(s(i, j, vars),j=i+1..nops(Q)),i=1..nops(Q))]:
-end proc:
+  map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
+                                   [Grid:-Seq(seq(s(i, j, vars), j=i+1..nops(Q)), i=1..nops(Q))]);
+  return ReconstructEvents(result);
+end proc;
 
 
 # Procedure: ComputeEventsCTypeGrid
@@ -296,23 +286,20 @@ end proc:
 # Output:
 #   Indexes of quadrics which intersect in a point.
 ComputeEventsCTypeGrid := proc( Q, vars::list )
-  local s:
+  uses ArrayTools;
+  local result := Array([]), s;
   if nops(vars) < 3 then
     error "Expected at least three a variables!";
   fi;
   s := proc (i, j, k, vars::list)
-    local p, sol, univ, sys;
+    local univ, sys;
     sys := { Q[i], Q[j], Q[k] }:
-    univ := EliminationResultant(sys, vars):
-    if not type( univ, constant ) then
-      sol := RootFinding:-Isolate(univ):
-      if nops(sol) > 0 then
-        return [ univ, [i,j,k] ]:
-      fi;
-    fi;
-    return NULL:
-   end proc:
-   return [Grid:-Seq(seq(seq(s(i, j, k, vars),k=j+1..nops(Q)),j=i+1..nops(Q)),i=1..nops(Q))]:
+    univ := EliminationResultant(sys, vars);
+    return SerializeEvents(GenerateEvents(univ, [i, j, k]));
+  end proc;
+  map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq(seq(seq(s(i, j, k, vars), 
+                                       k=j+1..nops(Q)),j=i+1..nops(Q)),i=1..nops(Q))]);
+  return ReconstructEvents(result);
 end proc:
 
 
@@ -327,26 +314,27 @@ end proc:
 # Output:
 #   A list of real algebraic numbers and indexes of quadrics -- events.
 ComputeAsymptoticAAEvents:=proc(Q, vars::list)
-  local listTmp := [], s;
+  uses ArrayTools;
+  local result := Array([]), s;
   if nops(vars) < 3 then
     error "Expected at least three a variables!";
   fi;
   s:=proc(i::integer, vars::list)
-    local events := [], sol, rootsF, tmp:
+    local events := Array([]), sol, rootsF, tmp:
     rootsF := IsAsymptotic(Q[i], vars):
     for sol in rootsF do
       sol := op(sol);
       if not type(rhs(sol), rational) then
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
-      events:=[op(events), EventType(RealAlgebraicNumber(lhs(sol) * denom(rhs(sol)) -
-      numer(rhs(sol)), rhs(sol), rhs(sol)), [i])];
+      ArrayTools:-Append(events, EventType(RealAlgebraicNumber(lhs(sol) * denom(rhs(sol)) -
+      numer(rhs(sol)), rhs(sol), rhs(sol)), [i]));
     od:
     return events;
-  end proc:
-  listTmp := select(proc(x) return evalb(x<>[]) end,[seq(s(i, vars),i=1..nops(Q))]);
-  return ListTools:-Flatten(listTmp, 1);
-end:
+  end proc;
+  map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq(s(i, vars), i=1..nops(Q))]);
+  return result;
+end proc;
 
 
 # Procedure: ComputeAsymptoticABEvents
@@ -360,31 +348,23 @@ end:
 # Output:
 #   A list of real algebraic numbers and indexes of quadrics -- events.
 ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
-  local listTmp:=[], s;
+  uses ArrayTools;
+  local result := Array([]), s;
   if nops(vars) < 3 then
     error "Expected at least three a variables!";
   fi;
   s:=proc(i::integer, j::integer, vars::list)
-   local events := [], sol, rootsF, poly, factored, sqrFree, rf;
+   local poly;
    poly := RigidMotionsParameterSpaceDecompostion:-IsAsymptoticIntersection(Q[i], Q[j], vars);
    if poly = NULL or nops(poly) = 0 then
      return [];
-   fi:
-   factored := factors( poly )[2,..,1]: 
-   for sqrFree in factored do
-      rootsF := RootFinding:-Isolate(sqrFree, op(indets(sqrFree)), output='interval');
-      for rf in rootsF do
-        events := [op(events), sprintf("%a", EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1],
-        op(rf)[2][2]), [i,j]))]; 
-      od:
-   od:
-   return events;
-  end proc:
-  listTmp := select(proc(x) return evalb(x<>[]) end,
-  [Grid:-Seq(seq(s(i, j, vars),j=i+1..nops(Q)),i=1..nops(Q))]);
-  listTmp := ListTools:-Flatten(listTmp, 1);
-  return Threads:-Map(proc(x) eval(parse(x)) end proc, listTmp);
-end proc:
+   fi;
+   return SerializeEvents(GenerateEvents(poly, [i, j]));
+  end proc;
+  map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq(seq(s(i, j, vars),
+  j=i+1..nops(Q)), i=1..nops(Q))]);
+  return ReconstructEvents(result);
+end proc;
 
 
 # Procedure: ComputeEventsFromAlgebraicNumbers
@@ -396,27 +376,12 @@ end proc:
 # Output:
 #   Sorted set of events
 ComputeEventsFromAlgebraicNumbers := proc( Q, vars::list )
-  local univs, rootsF, rf, poly:
-  local events := Array([]):
-  local numAsym;
-  local factored, sqrFree:
-
-  univs := {op(ComputeEventsATypeGrid( Q, [2, 3], vars )), op(ComputeEventsBTypeGrid( Q, 1, vars )),
-            op(ComputeEventsCTypeGrid( Q, vars ))};
-  for poly in univs do
-    factored := factors( poly[1] )[2,..,1]: 
-    for sqrFree in factored do
-      rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
-      for rf in rootsF do
-        ArrayTools:-Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], 
-                           op(rf)[2][2]), poly[2])):
-      od;
-    od;
-  od;
-  numAsym:=ComputeAsymptoticAAEvents(Q, vars);
-  ArrayTools:-Extend(events, numAsym, inplace=true);
-  numAsym:=ComputeAsymptoticABEventsGrid(Q, vars);
-  ArrayTools:-Extend(events, numAsym, inplace=true);
+  local events := Array([]);
+  ArrayTools:-Extend(events, ComputeEventsATypeGrid( Q, [2, 3], vars ), inplace=true);
+  ArrayTools:-Extend(events, ComputeEventsBTypeGrid( Q, 1, vars ), inplace=true);
+  ArrayTools:-Extend(events, ComputeEventsCTypeGrid( Q, vars ), inplace=true);
+  ArrayTools:-Extend(events, ComputeAsymptoticAAEvents(Q, vars), inplace=true);
+  ArrayTools:-Extend(events, ComputeAsymptoticABEventsGrid(Q, vars), inplace=true);
   return AlgebraicSort(events);
 end proc:
 
@@ -518,11 +483,9 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
     InsertQuadric(db, i, Q[i]);
   od;
   SynchronizeQuadrics(db);
-
   events := ComputeEventsFromAlgebraicNumbers(Q, variables);
   events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
                            events);
- 
   cluster := ClusterEvents(events);
   AdjustCluster(cluster, upperbound(Q), variables);
   #Insert events into the register

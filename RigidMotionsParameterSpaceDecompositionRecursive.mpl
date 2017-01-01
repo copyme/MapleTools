@@ -68,7 +68,8 @@ RigidMotionsParameterSpaceDecompostionRecursive := module()
 # Comment/Limitations:
 #  - Univariate polynomials are expressed in the first variable.
 ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars2D::list)
-  local s:
+  uses ArrayTools;
+  local result := Array([]), s;
   if nops(vars2D) < 2 then
     error "Only systems in at least two variables are supported. The variables are: %1.", vars2D;
   fi:
@@ -77,20 +78,16 @@ ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars2D::list)
     local q := Q2D2[i];
     sys := { q, diff( q, vars2D[2] ) };
     univ := EliminationResultant(sys, vars2D):
-    if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, vars2D[1..1]):
-      if nops(sol) > 0 then
-        return [univ, [i]];
-      else
-        return NULL;
-      fi;
-    end if;
+    return SerializeEvents(GenerateEvents(univ, [i]));
   end proc;
   if grid then
-    return [Grid:-Seq( s( i, vars2D ), i=1..nops( Q2D2 ) )]:
+    map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq( s( i, vars2D ), 
+                                                                   i=1..nops( Q2D2 ) )]);
   else 
-    return [seq( s( i, vars2D ), i=1..nops( Q2D2 ) )]:
+    map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq( s( i, vars2D ), 
+                                                             i=1..nops( Q2D2 ) )]);
   fi;
+  return ReconstructEvents(result);
 end proc:
 
 # Procedure: ComputeEventsBType2D
@@ -109,24 +106,22 @@ end proc:
 # Comment/Limitations:
 #  - Univariate polynomials are expressed in the first variable.
 ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars2D::list)
-  local s:
+  uses ArrayTools;
+  local result := Array([]), s:
   s := proc (i, j, vars2D::list)
     local p, sol, univ, sys;
     sys := {Q2D2[i], Q2D2[j]}:
     univ := EliminationResultant(sys, vars2D):
-    if not type( univ, constant ) then
-      sol := RootFinding:-Isolate( univ, vars2D[1..1]):
-      if nops(sol) > 0 then
-        return [ univ, [i,j] ]:
-      fi:
-    fi;
-    return NULL:
-   end proc:
-   if grid then
-     return [Grid:-Seq( seq( s(i, j, vars2D), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
-   else
-     return [seq( seq( s(i, j, vars2D), j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]:
-   fi;
+    return SerializeEvents(GenerateEvents(univ, [i, j]));
+  end proc;
+  if grid then
+    map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq( seq( s(i, j, vars2D), 
+                                                  j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
+  else 
+    map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq( seq( s(i, j, vars2D), 
+                                            j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
+  fi;
+  return ReconstructEvents(result);
 end proc:
 
 # Procedure: IsAsymptotic2D
@@ -154,25 +149,16 @@ end proc:
 # Output: Real
 #   A list of Events (see EventType).
 ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list)
-  local out := [], s, factored, sqrFree;
+  uses ArrayTools;
+  local result := Array([]), s;
   s:=proc(i::integer, vars2D::list)
-    local rf, rootsF;
-    local events := [], asy:
-     asy := RigidMotionsParameterSpaceDecompostionRecursive:-IsAsymptotic2D(Q2D2[i], vars2D[-1]);
-     if not type(asy, constant) then
-       factored := factors(asy)[2,..,1];
-       for sqrFree in factored do
-         rootsF := RootFinding:-Isolate(sqrFree, vars2D[1], output='interval');
-         for rf in rootsF do
-           events:=[op(events), EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], op(rf)[2][2]),
-                                          [i])];
-         od;
-       od;
-     fi:
-    return events;
+    local asy;
+    asy := RigidMotionsParameterSpaceDecompostionRecursive:-IsAsymptotic2D(Q2D2[i], vars2D[-1]);
+    return GenerateEvents(asy, [i]);
   end proc:
-  out:=select(proc(x) return evalb(x<>[]) end, [seq(s(i, vars2D),i=1..nops(Q2D2))]);
-  return ListTools:-Flatten(out, 1);
+  map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq(s(i, vars2D),
+                                                                i=1..nops(Q2D2))]);
+  return result;
 end:
 
 
@@ -188,23 +174,11 @@ end:
 # Output:
 #   Sorted Array of real algebraic numbers
 ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
-  local univs, rootsF, rf, poly;
+  uses ArrayTools;
   local events := Array([]);
-  local factored, sqrFree;
-
-  univs:= {op(ComputeEventsAType2D(Q2D2, grid, vars2D)), op(ComputeEventsBType2D(Q2D2, grid, 
-            vars2D))};
-  for poly in univs do
-    factored := factors(poly[1])[2,..,1];
-    for sqrFree in factored do
-      rootsF := RootFinding:-Isolate(sqrFree, output='interval'):
-      for rf in rootsF do
-        ArrayTools:-Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], 
-                           op(rf)[2][2]), poly[2]));
-      od;
-    od;
-  od;
-  ArrayTools:-Extend(events, ComputeAsymptoticAAEvents2D(Q2D2, vars2D), inplace=true);
+  Extend(events, ComputeEventsAType2D(Q2D2, grid, vars2D), inplace=true);
+  Extend(events, ComputeEventsBType2D(Q2D2, grid, vars2D), inplace=true);
+  Extend(events, ComputeAsymptoticAAEvents2D(Q2D2, vars2D), inplace=true);
   return AlgebraicSort(events);
 end proc:
 

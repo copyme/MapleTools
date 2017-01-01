@@ -51,7 +51,8 @@ RigidMotionsParameterSpaceCommon := module()
   option package;
   uses   RigidMotionsMaplePrimesCode;
   export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
-  OneVariableElimination, ClusterEvents, AlgebraicSort, AdjustCluster;
+  OneVariableElimination, ClusterEvents, AlgebraicSort, AdjustCluster, GenerateEvents,
+  SerializeEvents, ReconstructEvents;
 
 
 # Procedure: CayleyTransform
@@ -181,6 +182,33 @@ OneVariableElimination := proc( p, q, v)
         return p;
     end if;
 end proc;
+
+
+GenerateEvents := proc(x::polynom, quads::list)
+  uses ArrayTools;
+  local events := Array([]), factored, rootsF, sqrFree, rf;
+  if nops(indets(x)) = 1 then
+    factored := factors(x)[2,..,1];
+    for sqrFree in factored do
+      rootsF := RootFinding:-Isolate(sqrFree, output='interval');
+      for rf in rootsF do
+        Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], op(rf)[2][2]), quads));
+      od;
+    od;
+  fi;
+  return events;
+end proc;
+
+
+SerializeEvents := proc(events)
+  return map[inplace](proc(x) sprintf("%a", x) end proc, events);
+end proc;
+
+
+ReconstructEvents := proc(events)
+  return map[inplace](proc(x) eval(parse(x)) end proc, events);
+end proc;
+
 
 AdjustCluster := proc(clusterLink::uneval, quadNum::integer, variables::list)
   local cluster := eval(clusterLink);
