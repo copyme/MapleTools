@@ -226,7 +226,7 @@ end proc:
 #   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
-  local i::integer, j::integer, x::list, midpoint::rational, sys::list, samplePoints::list;
+  local i::integer, j::integer, x::list, midpoint::rational, sys::list;
   local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
     error "Bounds of the cluster range are incorrect.": 
@@ -245,7 +245,7 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integ
     # never call eval with sets!
     sys := eval(sys, vars2D[1] = midpoint);
     oneD := ComputeEventsAType1D(sys);
-    if oneD = NULL then
+    if oneD = [] then
       next;
     fi:
 
@@ -255,15 +255,17 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integ
     fi:
 
     if upperbound(oneD) > 0 then
-      samplePoints := [];
       for j from 1 to upperbound(oneD) - 1 do
         disjointEvent := DisjointRanges(oneD[j],oneD[j+1]);
-        samplePoints := [op(samplePoints), [amid, midpoint, (GetInterval(disjointEvent[1])[2] +
-                                            GetInterval(disjointEvent[2])[1])/2]];
+        InsertSamplePoint(db, [amid, midpoint, (GetInterval(disjointEvent[1])[2] +
+                                            GetInterval(disjointEvent[2])[1])/2]);
       od:
-      samplePoints := [op(samplePoints), [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]];
-      map(proc(x) InsertSamplePoint(db, x) end proc, samplePoints);
+      InsertSamplePoint(db, [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]);
     fi:
+
+    if upperbound(oneD) > 500 then
+      SynchronizeSamplePoints(db);
+    fi;
  od:
 end proc:
 

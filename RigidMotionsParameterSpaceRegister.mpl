@@ -172,7 +172,7 @@ module ComputationRegister()
     Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[1]));
     Database[SQLite]:-Bind(stmt, 4, sprintf("%a", GetInterval(num)[2]));
     Database[SQLite]:-Bind(stmt, 5, idCluster);
-    Database[SQLite]:-Step(stmt);
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
     for x in quadrics do
       stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||

@@ -531,6 +531,7 @@ ParallelComputeSamplePointsResume := proc()
   cluster := FetchClusters(db, me* n+1,(me+1)*n+1); 
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
                                                               db, skipped);
+  Close(db);
   Grid:-Barrier();
 end proc:
 
