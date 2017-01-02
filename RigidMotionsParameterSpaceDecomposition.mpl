@@ -493,10 +493,15 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   for i from 1 to upperbound(cluster) do
     for j from 1 to upperbound(cluster[i]) do
       InsertEvent(db, i, k, cluster[i][j]);
+      # prevent huge memory usage by cache database
+      if k mod 1000 = 0 then
+        SynchronizeEvents(db);
+      fi;
       k:=k+1;
     od;
   od;
   SynchronizeEvents(db);
+  Close(db);
 
   if nodes > 1 then
     SerializeCluster();
@@ -550,6 +555,7 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   dbPath:=databasePath;
   mesg:=kernelopts(printbytes=false):
   Q := FetchQuadrics(db);
+  Close(db);
   Grid:-Setup("local");
   Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePointsResume, 
                imports=['Q', 'vars', 'dbPath'], numnodes=nodes);

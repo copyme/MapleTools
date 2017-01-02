@@ -110,6 +110,11 @@ module ComputationRegister()
   end proc;
 
 
+  export Close::static := proc( self::ComputationRegister )
+    Database[SQLite]:-Close(self:-connection);
+  end proc;
+
+
 # Method: ModulePrint
 #   Standard printout of an object of type ComputationRegister.
 #
@@ -220,6 +225,11 @@ module ComputationRegister()
                            "ev.QUADID);");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
+
+    #clean up cacheDB
+    stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.RealAlgebraicNumber;");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
   end proc;
 
 
@@ -271,6 +281,11 @@ module ComputationRegister()
                                  "FROM cacheDB.SamplePoint WHERE NOT EXISTS(SELECT 1 FROM " ||
                                  "SamplePoint AS s, cacheDB.SamplePoint AS sc WHERE s.A = sc.A " ||
                                  "AND s.B = sc.B AND s.C = sc.C);");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+
+    #clean up cacheDB
+    stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.SamplePoint;");
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
@@ -362,9 +377,8 @@ module ComputationRegister()
   export NumberOfClusters::static := proc(self::ComputationRegister)
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(cluster_id) " ||
                                             "FROM RealAlgebraicNumber;"); 
-    local num::integer;
-    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
-    num := Database[SQLite]:-Fetch(stmt, 0);
+    # Fetch() does not work - "no data left"
+    local num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
     Database[SQLite]:-Finalize(stmt);
     return num;
   end proc;

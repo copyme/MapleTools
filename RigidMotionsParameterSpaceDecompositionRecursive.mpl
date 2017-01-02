@@ -199,7 +199,7 @@ ComputeEventsAType1D := proc(Q2D2::list)
       for sqrFree in factored do
         rootsF := RootFinding:-Isolate(sqrFree, output='interval');
         for rf in rootsF do
-          ArrayTools:-Append(numbers, Object(RealAlgebraicNumber, sqrFree, op(rf)[2][1],
+          ArrayTools:-Append(numbers, RealAlgebraicNumber(sqrFree, op(rf)[2][1],
                              op(rf)[2][2]));
         od;
       od;
