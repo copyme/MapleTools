@@ -46,6 +46,10 @@
 #
 RigidMotionsParameterSpaceDecompostionRecursive := module() 
   option package;
+
+  (*Threshold which controls when to synchronize databases.*)
+  local RECORDS_TO_SYNCH := 1000;
+
   uses   RigidMotionsParameterSpaceCommon;
   local  ComputeEventsAType2D, ComputeEventsBType2D, ComputeEventsAType1D,
          ComputeAsymptoticAAEvents2D, ComputeEventsAlgebraicNumbers2D, ComputeSamplePoints2D;
@@ -226,7 +230,7 @@ end proc:
 #   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
-  local i::integer, j::integer, x::list, midpoint::rational, sys::list;
+  local i::integer, j::integer, x::list, midpoint::rational, sys::list, records := 0;
   local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
     error "Bounds of the cluster range are incorrect.": 
@@ -259,12 +263,16 @@ ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integ
         disjointEvent := DisjointRanges(oneD[j],oneD[j+1]);
         InsertSamplePoint(db, [amid, midpoint, (GetInterval(disjointEvent[1])[2] +
                                             GetInterval(disjointEvent[2])[1])/2]);
+        records := records + 1;
+        if records mod RECORDS_TO_SYNCH = 0 then
+          SynchronizeSamplePoints(db);
+        fi;
       od:
       InsertSamplePoint(db, [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]);
-    fi:
-
-    if upperbound(oneD) > 500 then
-      SynchronizeSamplePoints(db);
+      records := records + 1;
+      if records mod RECORDS_TO_SYNCH = 0 then
+        SynchronizeSamplePoints(db);
+      fi;
     fi;
  od:
 end proc:

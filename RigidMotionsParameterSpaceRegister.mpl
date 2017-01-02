@@ -75,8 +75,9 @@ module ComputationRegister()
       fileStatus:=FileTools:-Exists(dbPath);
       self:-connection := Database[SQLite]:-Open(dbPath);
       Database[SQLite]:-Attach(self:-connection, ":memory:", "cacheDB");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL;");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL;");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA cacheDB.auto_vacuum = FULL;");
 
       #Create tables
       if not fileStatus then

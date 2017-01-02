@@ -48,6 +48,10 @@
 RigidMotionsParameterSpaceDecompostion := module() 
   option package;
   uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
+
+  (*Threshold which controls when to synchronize databases.*)
+  local RECORDS_TO_SYNCH := 1000;
+
   local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics,
          ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEvents, 
@@ -444,6 +448,7 @@ ParallelComputeSamplePoints := proc()
   Threads:-Map[inplace](proc(x) map[inplace](proc(y) eval(parse(y)) end proc, x) end proc, cluster);
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, cluster, me*n+1,(me+1)*n, vars, 
                                                               db, skipped);
+  Close(db);
   Grid:-Barrier();
 end proc:
 
@@ -493,11 +498,11 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   for i from 1 to upperbound(cluster) do
     for j from 1 to upperbound(cluster[i]) do
       InsertEvent(db, i, k, cluster[i][j]);
+      k:=k+1;
       # prevent huge memory usage by cache database
-      if k mod 1000 = 0 then
+      if k mod RECORDS_TO_SYNCH = 0 then
         SynchronizeEvents(db);
       fi;
-      k:=k+1;
     od;
   od;
   SynchronizeEvents(db);
