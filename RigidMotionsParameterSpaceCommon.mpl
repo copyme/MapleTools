@@ -51,7 +51,7 @@ RigidMotionsParameterSpaceCommon := module()
   option package;
   uses   RigidMotionsMaplePrimesCode;
   export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
-  OneVariableElimination, ClusterEvents, AlgebraicSort, AdjustCluster, GenerateEvents,
+  OneVariableElimination, AlgebraicSort, ReduceEvents, AdjustEvents, GenerateEvents,
   SerializeEvents, ReconstructEvents;
 
 
@@ -210,37 +210,33 @@ ReconstructEvents := proc(events)
 end proc;
 
 
-AdjustCluster := proc(clusterLink::uneval, quadNum::integer, variables::list)
-  local cluster := eval(clusterLink);
+
+ReduceEvents := proc(L::Array) 
+  uses ArrayTools;
+  local R, k, j, last, x; 
+  R := Array([]); k := 0; last := 1; 
+  for j from 2 to upperbound(L) do 
+    if Compare(L[j-1], L[j], _rest) <> 0 then 
+      k := k+1; 
+      R(k) := EventType(GetRealAlgebraicNumber(L[last]), 
+              [seq(op(GetQuadrics(x)) ,x=L[last .. j-1])]);
+      last := j
+    end if 
+  end do;
+  Extend(Array([seq(k, k = R)]), L[last .. ()])
+end proc;
+
+
+
+AdjustEvents := proc(events::Array, quadNum::integer, variables::list)
   local boundTmp, lastEvent;
   # assign all quadrics to the first event in the first cluster
-  cluster[1][1] := EventType(GetRealAlgebraicNumber(cluster[1][1]), [seq(1..quadNum)]);
+  events[1] := EventType(GetRealAlgebraicNumber(events[1]), [seq(1..quadNum)]);
   # add the last slice twice but shifted to calculate correctly last quadrics
   boundTmp:= GetInterval(GetRealAlgebraicNumber(cluster[-1][1]))[2]+1;
   lastEvent := RealAlgebraicNumber(denom(boundTmp)*variables[1]-numer(boundTmp), boundTmp, boundTmp);
-  ArrayTools:-Append(cluster, Array([EventType(lastEvent, GetQuadrics(cluster[-1][1]))]));
+  ArrayTools:-Append(events, EventType(lastEvent, GetQuadrics(events[-1])), inplace=true)
 end proc;
-
-# Procedure: ClusterEvents
-#   Compute sublists which contains equal events
-#
-# Comments:
-#   Used to split calculations over a grid of nodes for parallel computations.
-#
-# Parameters:
-#   events  - a list (or Array) of Events (see type EventType)
-#
-# Output:
-#   A list of sublists where each of them contains equal events.
-ClusterEvents := proc(events)
-  return SplitScan(
-            proc (x, y) 
-              if not type(x, EventType) or not type(y, EventType) then
-                error "Elements are not of type EventType." 
-              end if;
-            return evalb(Compare(x, y) <> 0) 
-            end proc, events)
-end proc:
 
 
 # Procedure: AlgebraicSort
