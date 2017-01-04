@@ -98,7 +98,7 @@ module ComputationRegister()
 
       Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
       "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
-      "TEXT NOT NULL, cluster_id INTEGER NOT NULL);");
+      "TEXT NOT NULL);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
       "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
@@ -162,18 +162,17 @@ module ComputationRegister()
 #   SynchronizeEvents has to be called to move inserted events
 #   into the register.
 #
-  export InsertEvent::static := proc(self::ComputationRegister, idCluster::integer, idNum::integer,
+  export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                      event::EventType)
     local x::integer, num := GetRealAlgebraicNumber(event), quadrics := GetQuadrics(event);
     local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                              "cacheDB.RealAlgebraicNumber(ID, polynom, " || 
-                                             "IntervalL, IntervalR, cluster_id) " ||
-                                             "VALUES (?, ?, ?, ?, ?);");
+                                             "IntervalL, IntervalR) " ||
+                                             "VALUES (?, ?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, idNum);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetPolynomial(num)));
     Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[1]));
     Database[SQLite]:-Bind(stmt, 4, sprintf("%a", GetInterval(num)[2]));
-    Database[SQLite]:-Bind(stmt, 5, idCluster);
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
     Database[SQLite]:-Finalize(stmt);
     for x in quadrics do
@@ -238,7 +237,7 @@ module ComputationRegister()
 
 
 # Method: InsertComputedNumber
-#    Inserts ids' of cluster into a given database.
+#    Inserts ids' of computed events into a given database.
 #
 # Parameters:
 #   self::ComputationRegister      - an instance of ComputationRegister
