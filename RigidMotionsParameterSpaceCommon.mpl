@@ -230,10 +230,10 @@ end proc;
 
 AdjustEvents := proc(events::Array, quadNum::integer, variables::list)
   local boundTmp, lastEvent;
-  # assign all quadrics to the first event in the first cluster
+  # assign all quadrics to the first even
   events[1] := EventType(GetRealAlgebraicNumber(events[1]), [seq(1..quadNum)]);
   # add the last slice twice but shifted to calculate correctly last quadrics
-  boundTmp:= GetInterval(GetRealAlgebraicNumber(cluster[-1][1]))[2]+1;
+  boundTmp:= GetInterval(GetRealAlgebraicNumber(events[-1]))[2]+1;
   lastEvent := RealAlgebraicNumber(denom(boundTmp)*variables[1]-numer(boundTmp), boundTmp, boundTmp);
   ArrayTools:-Append(events, EventType(lastEvent, GetQuadrics(events[-1])), inplace=true)
 end proc;

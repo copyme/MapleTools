@@ -219,30 +219,25 @@ end proc:
 #
 # Parameters:
 #   Q2D         - a list of conics
-#   cluster2D   - each element contains a list of equal real algebraic number and related
-#                 conics.
-#   first       - integer value which indicates a first cluster to proceed.
-#   last        - integer value which indicates a last cluster to proceed.
+#   events      - each element contains a list of algebraically unique events
+#   first       - integer value which indicates the first event to proceed.
+#   last        - integer value which indicates the last event to proceed.
 #   vars2D      - list of variables in which conics are expressed
 #   db          - an instance of the class ComputationRegister
 #
 # Output:
 #   It populates a database, given by databasePath, with sample points.
-ComputeSamplePoints2D := proc(Q2D, cluster2D::Array, first::integer, last::integer,
+ComputeSamplePoints2D := proc(Q2D, events::Array, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, records := 0;
   local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
-  if first < 0 or last < 0 or last < first or upperbound(cluster2D) <= last then 
-    error "Bounds of the cluster range are incorrect.": 
+  if first < 0 or last < 0 or last < first or upperbound(events) <= last then 
+    error "Bounds of the array range are incorrect.": 
   end if:
   for i from first to last do 
-    sys := []: 
-    for x in cluster2D[i] do 
-      sys := [op(sys), op(Q2D[GetQuadrics(x)])];
-    end do:
-    sys := ListTools:-MakeUnique(sys);
-    ranumI := GetRealAlgebraicNumber(cluster2D[i][1]);
-    ranumJ := GetRealAlgebraicNumber(cluster2D[i+1][1]);
+    sys := Q2D[GetQuadrics(events[i])];
+    ranumI := GetRealAlgebraicNumber(events[i]);
+    ranumJ := GetRealAlgebraicNumber(events[i+1]);
     disjointEvent:=DisjointRanges(ranumI, ranumJ);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
    
@@ -295,7 +290,7 @@ end proc:
 LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
                                            grid::boolean, variables::list, db::ComputationRegister) 
   local events, firstEvent, rootTmp;
-  local Q2D := ListTools:-MakeUnique([op(variables), op(s)]), cluster2D;
+  local Q2D := ListTools:-MakeUnique([op(variables), op(s)]);
   if grid and nops(s) > 20 then
      events := ComputeEventsAlgebraicNumbers2D(Q2D, true, variables);
   else
@@ -306,9 +301,9 @@ LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer
   if upperbound(events) = 0 then
     return NULL;
   fi;
-  cluster2D := ClusterEvents(events);
-  AdjustCluster(cluster2D, upperbound(Q2D), variables);
-  ComputeSamplePoints2D(Q2D, cluster2D, 1, upperbound(cluster2D) - 1, variables, midpoint, db);
+  events := ReduceEvents(events);
+  AdjustEvents(events, upperbound(Q2D), variables);
+  ComputeSamplePoints2D(Q2D, events, 1, upperbound(events) - 1, variables, midpoint, db);
 end proc:
 
 end module;

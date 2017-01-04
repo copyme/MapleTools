@@ -424,7 +424,7 @@ local i, x, midpoint, sys, samplePoints, disjointEvent:=[], ranumI, ranumJ;
     sys := eval(sys, vars[1] = midpoint);
     LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
     SynchronizeSamplePoints(db);
-    InsertSkippedCluster(db, i);
+    InsertComputedNumber(db, i);
   end do;
 end proc:
 
@@ -477,7 +477,7 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   SynchronizeQuadrics(db);
   events := ComputeEventsFromAlgebraicNumbers(Q, variables);
   events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
-                           events);
+                                                                                           events);
   events := ReduceEvents(events);
   AdjustEvents(events, upperbound(Q), variables);
   #Insert events into the register
@@ -507,12 +507,12 @@ ParallelComputeSamplePointsResume := proc()
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
   numNodes := Grid:-NumNodes();
-  skipped := FetchSkippedClusters(db);
+  skipped := FetchComputedNumbers(db);
   # events-1 because the last event is a copy of events[-2]
-  n := trunc((NumberOfClusters(db)-1)/numNodes);
+  n := trunc((NumberOfEvents(db)-1)/numNodes);
   # recreate events
-  skipped := FetchSkippedClusters(db);
-  events := FetchClusters(db, me* n+1,(me+1)*n+1); 
+  skipped := FetchComputedNumbers(db);
+  events := FetchEvents(db, me* n+1,(me+1)*n+1); 
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, events, me*n+1,(me+1)*n, vars, 
                                                                                   db, skipped);
   Close(db);
