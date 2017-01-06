@@ -115,15 +115,15 @@ ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars2D::list)
   s := proc (i, j, vars2D::list)
     local p, sol, univ, sys;
     sys := {Q2D2[i], Q2D2[j]}:
-    univ := EliminationResultant(sys, vars2D):
+    univ := EliminationResultant(sys, vars2D);
     return SerializeEvents(GenerateEvents(univ, [i, j]));
   end proc;
   if grid then
     map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq( seq( s(i, j, vars2D), 
-                                                  j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
+                                                       j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
   else 
     map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq( seq( s(i, j, vars2D), 
-                                            j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
+                                                 j=i+1..nops( Q2D2 ) ), i=1..nops( Q2D2 ) )]);
   fi;
   return ReconstructEvents(result);
 end proc:
@@ -179,11 +179,11 @@ end:
 #   Sorted Array of real algebraic numbers
 ComputeEventsAlgebraicNumbers2D := proc(Q2D2, grid::boolean, vars2D::list)
   uses ArrayTools;
-  local events := Array([]);
-  Extend(events, ComputeEventsAType2D(Q2D2, grid, vars2D), inplace=true);
-  Extend(events, ComputeEventsBType2D(Q2D2, grid, vars2D), inplace=true);
-  Extend(events, ComputeAsymptoticAAEvents2D(Q2D2, vars2D), inplace=true);
-  return AlgebraicSort(events);
+  local events2D := Array([]);
+  Extend(events2D, ComputeEventsAType2D(Q2D2, grid, vars2D), inplace=true);
+  Extend(events2D, ComputeEventsBType2D(Q2D2, grid, vars2D), inplace=true);
+  Extend(events2D, ComputeAsymptoticAAEvents2D(Q2D2, vars2D), inplace=true);
+  return AlgebraicSort(events2D);
 end proc:
 
 
@@ -219,7 +219,7 @@ end proc:
 #
 # Parameters:
 #   Q2D         - a list of conics
-#   events      - each element contains a list of algebraically unique events
+#   events2D    - each element contains a list of algebraically unique events
 #   first       - integer value which indicates the first event to proceed.
 #   last        - integer value which indicates the last event to proceed.
 #   vars2D      - list of variables in which conics are expressed
@@ -227,31 +227,23 @@ end proc:
 #
 # Output:
 #   It populates a database, given by databasePath, with sample points.
-ComputeSamplePoints2D := proc(Q2D, events::Array, first::integer, last::integer,
+ComputeSamplePoints2D := proc(Q2D, events2D::Array, first::integer, last::integer,
                               vars2D::list, amid::rational, db::ComputationRegister)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, records := 0;
   local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
-  if first < 0 or last < 0 or last < first or upperbound(events) <= last then 
+  if first < 0 or last < 0 or last < first or upperbound(events2D) <= last then 
     error "Bounds of the array range are incorrect.": 
   end if:
   for i from first to last do 
-    sys := Q2D[GetQuadrics(events[i])];
-    ranumI := GetRealAlgebraicNumber(events[i]);
-    ranumJ := GetRealAlgebraicNumber(events[i+1]);
+    sys := Q2D[GetQuadrics(events2D[i])];
+    ranumI := GetRealAlgebraicNumber(events2D[i]);
+    ranumJ := GetRealAlgebraicNumber(events2D[i+1]);
     disjointEvent:=DisjointRanges(ranumI, ranumJ);
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
-   
     # never call eval with sets!
     sys := eval(sys, vars2D[1] = midpoint);
     oneD := ComputeEventsAType1D(sys);
-    if oneD = [] then
-      next;
-    fi:
-
-    oneDNeg, oneD := selectremove(proc(x) return evalb(GetInterval(x)[2] < 0); end proc, oneD):
-    if nops(oneDNeg) <> 0 then
-      oneD := [oneDNeg[-1], op(oneD)];
-    fi:
+    oneD := select(proc(x) return evalb(GetInterval(x)[2] >= 0); end proc, oneD);
 
     if upperbound(oneD) > 0 then
       for j from 1 to upperbound(oneD) - 1 do
@@ -289,21 +281,20 @@ end proc:
 #   It populates a database with sample points.
 LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
                                            grid::boolean, variables::list, db::ComputationRegister) 
-  local events, firstEvent, rootTmp;
-  local Q2D := ListTools:-MakeUnique([op(variables), op(s)]);
+  local events2D, Q2D := ListTools:-MakeUnique([op(variables), op(s)]);
   if grid and nops(s) > 20 then
-     events := ComputeEventsAlgebraicNumbers2D(Q2D, true, variables);
+     events2D := ComputeEventsAlgebraicNumbers2D(Q2D, true, variables);
   else
-     events := ComputeEventsAlgebraicNumbers2D(Q2D, false, variables);
+     events2D := ComputeEventsAlgebraicNumbers2D(Q2D, false, variables);
   fi;
-  events := remove[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] < 0) end proc, 
-                            events);
-  if upperbound(events) = 0 then
+  events2D := remove[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] < 0) end proc, 
+                            events2D);
+  if upperbound(events2D) = 0 then
     return NULL;
   fi;
-  events := ReduceEvents(events);
-  AdjustEvents(events, upperbound(Q2D), variables);
-  ComputeSamplePoints2D(Q2D, events, 1, upperbound(events) - 1, variables, midpoint, db);
+  events2D := ReduceEvents(events2D);
+  AdjustEvents(events2D, upperbound(Q2D), variables);
+  ComputeSamplePoints2D(Q2D, events2D, 1, upperbound(events2D) - 1, variables, midpoint, db);
 end proc:
 
 end module;

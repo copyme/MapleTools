@@ -407,7 +407,7 @@ end proc:
 #   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints := proc (Q, events::Array, first::integer, last::integer, 
                              vars::list, db::ComputationRegister, skipped::list:=[]) 
-local i, x, midpoint, sys, samplePoints, disjointEvent:=[], ranumI, ranumJ;
+local i, midpoint, sys, samplePoints, disjointEvent:=[], ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(events) <= last then 
     error "Bounds of the list of the events range are incorrect.": 
   end if:
@@ -433,12 +433,11 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 ParallelComputeSamplePoints := proc()
-  local me, numNodes, n;
+  local me, n;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
-  numNodes := Grid:-NumNodes();
   # events-1 because the last event is a copy of events[-2]
-  n := trunc((upperbound(events)-1)/numNodes);
+  n := trunc((upperbound(events)-1)/ Grid:-NumNodes());
   # recreate events
   ReconstructEvents(events);
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, events, me*n+1,(me+1)*n, vars, 
@@ -462,8 +461,7 @@ end proc:
 #   It populates a database given by databasePath.
 LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
                                   kRange::list, nodes:=kernelopts(numcpus)) 
-  local events, lastEvent, R, boundTmp, i, j, k, mesg;
-  local db:=Object(ComputationRegister, databasePath);
+  local R, i, mesg, db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
   mesg:=kernelopts(printbytes=false);
@@ -477,7 +475,7 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   SynchronizeQuadrics(db);
   events := ComputeEventsFromAlgebraicNumbers(Q, variables);
   events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
-                                                                                           events);
+                                                                                          events);
   events := ReduceEvents(events);
   AdjustEvents(events, upperbound(Q), variables);
   #Insert events into the register
@@ -503,13 +501,12 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 ParallelComputeSamplePointsResume := proc()
-  local me, numNodes, n, events, skipped;
+  local me, n, events, skipped;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
-  numNodes := Grid:-NumNodes();
   skipped := FetchComputedNumbers(db);
   # events-1 because the last event is a copy of events[-2]
-  n := trunc((NumberOfEvents(db)-1)/numNodes);
+  n := trunc((NumberOfEvents(db)-1) / Grid:-NumNodes());
   # recreate events
   skipped := FetchComputedNumbers(db);
   events := FetchEvents(db, me* n+1,(me+1)*n+1); 
@@ -528,14 +525,12 @@ end proc:
 #   variables     - list of variables in which the problem is expressed
 #   databasePath  - a path to a database file. If file does not exist it will be crated.
 #   nType         - neighborhood type: N1, N2 or N3.
-#   kRange        - range of grid lines passed as a list
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
 LaunchResumeComputations := proc(variables::list, databasePath::string, nType::string, 
                                  nodes:=kernelopts(numcpus))
-  local events, firstEvent, rootTmp, i, mesg;
-  local db:=Object(ComputationRegister, databasePath);
+  local mesg, db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
   mesg:=kernelopts(printbytes=false):

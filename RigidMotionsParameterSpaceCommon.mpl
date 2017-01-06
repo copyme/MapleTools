@@ -212,18 +212,21 @@ end proc;
 
 
 ReduceEvents := proc(L::Array) 
-  uses ArrayTools;
   local R, k, j, last, x; 
   R := Array([]); k := 0; last := 1; 
   for j from 2 to upperbound(L) do 
     if Compare(L[j-1], L[j], _rest) <> 0 then 
       k := k+1; 
       R(k) := EventType(GetRealAlgebraicNumber(L[last]), 
-              [seq(op(GetQuadrics(x)) ,x=L[last .. j-1])]);
+              ListTools:-MakeUnique([seq(op(GetQuadrics(x)) ,x=L[last .. j-1])]));
       last := j
-    end if 
+    end if;
   end do;
-  Extend(Array([seq(k, k = R)]), L[last .. ()])
+  if last <> j then
+    ArrayTools:-Append(R, EventType(GetRealAlgebraicNumber(L[last]),  
+    ListTools:-MakeUnique([seq(op(GetQuadrics(x)) ,x=L[last .. ()])])))
+  fi;
+  return R;
 end proc;
 
 

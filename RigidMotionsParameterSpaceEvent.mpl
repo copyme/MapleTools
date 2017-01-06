@@ -67,7 +67,7 @@ EventType := module()
                                      quadrics::list, $ )
     if _passed = 2 then
       self:-ranum := proto:-ranum;
-      self:-quadrics := ListTools:-MakeUnique(proto:-quadrics);
+      self:-quadrics := proto:-quadrics;
     else
       self:-ranum := ranum;
       self:-quadrics := quadrics;

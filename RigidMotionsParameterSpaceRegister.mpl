@@ -75,7 +75,8 @@ module ComputationRegister()
       fileStatus:=FileTools:-Exists(dbPath);
       self:-connection := Database[SQLite]:-Open(dbPath);
       Database[SQLite]:-Attach(self:-connection, ":memory:", "cacheDB");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL;");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = OFF;");
+      #Database[SQLite]:-Execute(self:-connection, "PRAGMA synchronous = NORMAL;");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA journal_mode = WAL;");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA cacheDB.auto_vacuum = FULL;");
 
@@ -254,7 +255,7 @@ module ComputationRegister()
 
 
 # Method: InsertSamplePoint
-#    Inserts ids' of cluster into a given database.
+#    Inserts a sample point into a given database.
 #
 # Parameters:
 #   self::ComputationRegister      - an instance of ComputationRegister
@@ -296,7 +297,7 @@ module ComputationRegister()
 
 
 # Method: FetchComputedNumbers
-#    Fetch skipped clusters from the database.
+#    Fetch ids' of events which were processed already from the database.
 #
 # Parameters:
 #   self::ComputationRegister      - an instance of ComputationRegister
