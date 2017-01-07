@@ -353,10 +353,10 @@ module ComputationRegister()
     Database[SQLite]:-Bind(stmt, 2, last);
 
     #Slow but Fetching all can kill with memory consumption
-    while Database[SQLite]:-Step(stmt) = RESULT_ROW do
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_ROW do
       row := Database[SQLite]:-FetchRow(stmt);
-      events(row[1]) := EventType(RealAlgebraicNumber(parse(x[2]), parse(x[3]), 
-                    parse(x[4])), [parse(x[5])]);
+      events(row[1]) := EventType(RealAlgebraicNumber(parse(row[2]), parse(row[3]), 
+                    parse(row[4])), [parse(row[5])]);
     od;
     Database[SQLite]:-Finalize(stmt);
     return events;
