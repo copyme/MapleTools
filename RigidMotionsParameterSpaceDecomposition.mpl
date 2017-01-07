@@ -49,9 +49,6 @@ RigidMotionsParameterSpaceDecompostion := module()
   option package;
   uses   RigidMotionsParameterSpaceDecompostionRecursive, RigidMotionsParameterSpaceCommon;
 
-  (*Threshold which controls when to synchronize databases.*)
-  local RECORDS_TO_SYNCH := 1000;
-
   local  GetQuadric, IsMonotonic, ComputeSetOfQuadrics,
          ComputeEventsATypeGrid, ComputeEventsBTypeGrid, ComputeEventsCTypeGrid,
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEvents, 
