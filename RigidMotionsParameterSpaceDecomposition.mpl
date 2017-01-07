@@ -498,7 +498,7 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 ParallelComputeSamplePointsResume := proc()
-  local me, n, events, skipped first, last;
+  local me, n, events, skipped, first, last;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
   skipped := FetchComputedNumbers(db);
