@@ -42,6 +42,7 @@ module ComputationRegister()
   
   (* Connection object returned by Database[SQLite]:-Open *)
   local connection;
+  local version;
 
 # Method: ModuleCopy
 #   Standard constructor / copy constructor
@@ -68,9 +69,10 @@ module ComputationRegister()
   export ModuleCopy::static := proc( self::ComputationRegister,
                                      proto::ComputationRegister,
                                      dbPath::string, $ )
-  local fileStatus := false;
+  local fileStatus := false, version, stmt;
     if _passed = 2 then
       self:-connection := proto:-connection;
+      self:-version := proto:-version;
     else
       fileStatus:=FileTools:-Exists(dbPath);
       self:-connection := Database[SQLite]:-Open(dbPath);
@@ -96,16 +98,26 @@ module ComputationRegister()
         "NULL);");
       fi;
 
-      Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
-      "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
-      "TEXT NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
-      "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
-      "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
-      "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (" ||
-      "A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
+      stmt := Database[SQLite]:-Prepare(self:-connection, "PRAGMA user_version;");
+      while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+      self:-version := Database[SQLite]:-Fetch(stmt, 0);
+      Database:-Finalize(stmt);
+
+      if self:-version = 0 then
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
+        "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
+        "TEXT NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
+        "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE);");
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
+        "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
+        "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
+        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (" ||
+        "A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
+      else
+         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
+        "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
+        "TEXT NOT NULL);");
       fi;
 
     return self;
@@ -141,7 +153,11 @@ module ComputationRegister()
 #   into the register.
 #
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+    local stmt;
+    if self:-version > 0 then
+      error "Adding new quadrics is blocked! Re-run computations with a new database.";
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                  "cacheDB.Quadric(ID, polynom) VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
@@ -164,8 +180,12 @@ module ComputationRegister()
 #
   export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                      event::EventType)
-    local x::integer, num := GetRealAlgebraicNumber(event), quadrics := GetQuadrics(event);
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+    local x::integer, num, quadrics, stmt;
+    if self:-version > 0 then
+      error "Adding new events is blocked! Re-run computations with a new database.";
+    fi;
+    num := GetRealAlgebraicNumber(event); quadrics := GetQuadrics(event);
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                              "cacheDB.RealAlgebraicNumber(ID, polynom, " || 
                                              "IntervalL, IntervalR) " ||
                                              "VALUES (?, ?, ?, ?);");
@@ -194,7 +214,11 @@ module ComputationRegister()
 #
 #
   export SynchronizeQuadrics::static := proc(self::ComputationRegister)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric SELECT * FROM " ||
+    local stmt;
+    if self:-version > 0 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO Quadric SELECT * FROM " ||
                                                   "cacheDB.Quadric WHERE NOT EXISTS(SELECT 1 FROM " 
                                                   || "Quadric AS Q, cacheDB.Quadric AS qc WHERE " ||
                                                   "q.POLYNOM = qc.POLYNOM);");
@@ -213,7 +237,11 @@ module ComputationRegister()
 #   Cache database is cleared. Therefore, the method should be called only when all events were
 #   inserted.
   export SynchronizeEvents::static := proc(self::ComputationRegister)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO RealAlgebraicNumber " ||
+    local stmt;
+    if self:-version > 0 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO RealAlgebraicNumber " ||
                                 "SELECT * FROM cacheDB.RealAlgebraicNumber WHERE NOT " ||
                                 "EXISTS(SELECT 1 FROM RealAlgebraicNumber AS R, " ||
                                 "cacheDB.RealAlgebraicNumber AS rc WHERE r.ID = rc.ID AND " ||
@@ -245,7 +273,11 @@ module ComputationRegister()
 #
 #
   export InsertComputedNumber::static := proc(self::ComputationRegister, id::integer)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+    local stmt;
+    if self:-version > 0 then
+      error "Adding new computed events is blocked! Re-run computations with a new database.";
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                  "ComputedNumbers (RANumID) VALUES (?);");
     Database[SQLite]:-Bind(stmt, 1, id);    
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
@@ -262,7 +294,11 @@ module ComputationRegister()
 #
 #
   export InsertSamplePoint::static := proc(self::ComputationRegister, samp::list)
-    local stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+    local stmt;
+    if self:-version > 0 then
+      error "Adding new computed sample points is blocked! Re-run computations with a new database.";
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                  "cacheDB.SamplePoint (A, B, C) VALUES (?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, sprintf("%a", samp[1]));    
     Database[SQLite]:-Bind(stmt, 2, sprintf("%a", samp[2]));    
@@ -281,7 +317,11 @@ module ComputationRegister()
 # Comments:
 #   Cache database is cleared.
   export SynchronizeSamplePoints::static := proc(self::ComputationRegister)
-    local stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePoint SELECT * " ||
+    local stmt;
+    if self:-version > 0 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePoint SELECT * " ||
                                  "FROM cacheDB.SamplePoint WHERE NOT EXISTS(SELECT 1 FROM " ||
                                  "SamplePoint AS s, cacheDB.SamplePoint AS sc WHERE s.A = sc.A " ||
                                  "AND s.B = sc.B AND s.C = sc.C);");
@@ -369,6 +409,29 @@ module ComputationRegister()
     local num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
     Database[SQLite]:-Finalize(stmt);
     return num;
+  end proc;
+  
+
+  export PrepareSamplePoints::static := proc(self::ComputationRegister)
+    local stmt, toCompute;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"SELECT COUNT(ID) FROM RealAlgebraicNumber "
+    || "WHERE ID NOT IN (SELECT RANUMID FROM ComputedNumbers) AND ID NOT IN (SELECT MAX(ID) " ||
+    "FROM RealAlgebraicNumber);"); 
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    toCompute := Database[SQLite]:-Fetch(stmt, 0);
+    Database[SQLite]:-Finalize(stmt);
+
+    if self:-version = 0 and toCompute = 0 then
+      Database[SQLite]:-Execute(self:-connection, "ALTER TABLE SamplePoint RENAME TO " || 
+      "sqlitestudio_temp_table; CREATE TABLE SamplePoint (A TEXT NOT NULL, B TEXT NOT NULL, " ||
+      "C TEXT NOT NULL, ID INTEGER PRIMARY KEY AUTOINCREMENT); INSERT INTO SamplePoint (A, B, C) " ||
+      "SELECT A, B, C FROM sqlitestudio_temp_table; DROP TABLE sqlitestudio_temp_table;");
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 1";);
+      self:-version = 1;
+    elif toCompute <> 0 then
+      error "Before running computation of NMM it is necessary to compute all sample points!
+      Please, run first RigidMotionsParameterSpaceDecompostion:-LaunchResumeComputations().";
+    fi;
   end proc;
 
 end module;
