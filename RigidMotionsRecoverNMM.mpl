@@ -204,9 +204,16 @@ end proc:
 #   Removes sample points which corresponds to the same full dimensional component.
 #
  ParallelReduceSamplePoints:= proc() 
+  local first, last;
+  local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
+  local planes := CriticalPlanes(R, neighborhood, kRange);
   local db:=Object(ComputationRegister, dbPathGlobal), n;
-  n := trunc((NumberOfSamplePoints(db)-1) / Grid:-NumNodes());
-  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db);
+
+  n := trunc(NumberOfSamplePoints(db) / Grid:-NumNodes());
+  first :=  me* n+1; last :=  (me+1)*n;
+
+  sig, sdPlanes := GetOrderedCriticalPlanes(varsGlobal, rotSamp, planes); 
+
   Grid:-Barrier();
 end proc;
 
