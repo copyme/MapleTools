@@ -1,3 +1,61 @@
+# File: RigidMotionsRecoverNMM.mpl 
+#
+# Description:
+#  This file contains functions used to obtain an arrangement 6 dimensional parameter space of 3D
+#  digitized rigid motions.
+#  This code has been written for research propose and its aim is to calculate a particular
+#  arrangement of quadrics. Therefore, it can or it cannot be useful in study of generic
+#  arrangements. The final output are sample points of full dimensional open cells.
+#
+#  The code was written in relation with the paper: Kacper Pluta, Guillaume Moroz, Yukiko
+#  Kenmochi, Pascal Romon, Quadric arrangement in classifying rigid motions of a 3D digital image,
+#  2016, https://hal.archives-ouvertes.fr/hal-01334257 referred late on as [Quadrics:2016].
+#
+# Author:
+#  Kacper Pluta - kacper.pluta@esiee.fr
+#  Laboratoire d'Informatique Gaspard-Monge - LIGM, A3SI, France
+#
+# Date:
+#  11/12/2015 
+#
+# License:
+#  Simplified BSD License
+#
+# Copyright (c) 2015, Kacper Pluta
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL Kacper Pluta BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#
+
+RigidMotionsRecoverNMM := module() 
+  option package;
+
+  global nTypeGlobal::string;
+  global dbPathGlobal::string
+  global kRangeGlobal::list;
+  global varsGlobal::list;
+
+
+  export ParallelCalculateNMM;
+
 # Procedure: Get3DNMM
 #   Compute neighbourhood motion maps
 #
@@ -183,11 +241,11 @@ end proc:
 #
 # Output:
 #   Set of NMM
-ParallelCalculateNMM := proc(vars::list, nType::string, kRange::list, dirIn::string, dirOut::string,
-                             prefixIn::string, prefixOut::string) 
-  local me;
-  me := Grid:-MyNode(); 
-  CalculateNMM(vars, nType, kRange, dirIn, dirOut, prefixIn, prefixOut, me);
+ParallelCalculateNMM := proc() 
+  local db:=Object(ComputationRegister, dbPathGlobal), n;
+  # events-1 because the last event is a copy of events[-2]
+  n := trunc((NumberOfSamplePoints(db)-1) / Grid:-NumNodes());
+  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db, me);
   Grid:-Barrier();
 end proc:
 
@@ -197,16 +255,21 @@ end proc:
 # Parameters:
 #   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange           - a range of planes to consider
-#   dirIn            - a directory which contains sample points
-#   dirOut           - a directory to which save NMM
-#   prefixIn         - a prefix of files which contains sample points
-#   prefixOut        - a prefix of files which will contain NMM
 #
 # Output:
 #   Write a set of NMM to a file given by dirOut/prefixOut(id).tsv
-LaunchOnGridGetNMM := proc (nType::string, kRange::list, dirIn::string, dirOut::string,
-                             prefixIn::string, prefixOut::string, nodes:=20) 
-  Grid:-Setup("local", numnodes=nodes); 
-  Grid:-Launch(ParallelCalculateNMM, nType, kRange, dirIn, dirOut, prefixIn, prefixOut);
+LaunchOnGridGetNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
+                                                        nodes:=kernelopts(numcpus)) 
+
+  local db:=Object(ComputationRegister, dbPathGlobal);
+  PrepareSamplePoints(db);
+  Close(db);
+  Grid:-Setup("local"); 
+  nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
+               imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
+                                                                     numnodes=nodes);
 end proc:
 
+
+end module;
