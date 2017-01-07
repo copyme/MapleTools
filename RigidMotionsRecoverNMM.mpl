@@ -48,13 +48,13 @@
 RigidMotionsRecoverNMM := module() 
   option package;
 
-  global nTypeGlobal::string;
-  global dbPathGlobal::string
-  global kRangeGlobal::list;
-  global varsGlobal::list;
+  global nTypeGlobal::string, dbPathGlobal::string, kRangeGlobal::list, varsGlobal::list;
 
+  (*Controls how many sample points should be fetch from the database in one quary.*)
+  local BUFFER_SIZE := 1000;
 
-  export ParallelCalculateNMM;
+  export ParallelCalculateNMM, Get3DNMM, RecoverTranslationSamplePoints, GetOrderedCriticalPlanes, 
+         CriticalPlanes, CalculateNMM, LaunchComputeNMM;
 
 # Procedure: Get3DNMM
 #   Compute neighbourhood motion maps
@@ -174,43 +174,19 @@ end proc;
 # Parameters:
 #   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
 #   kRange           - a range of planes to consider
-#   dirIn            - a directory which contains sample points
-#   dirOut           - a directory to which save NMM
-#   prefixIn         - a prefix of files which contains sample points
-#   prefixOut        - a prefix of files which will contain NMM
-#   id               - an id of a file which contains sample points
-#
 # Output:
 #   Set of NMM
 #
-# TODO:
-#   Export printing code into a procedure
-#   Simplify the code
-CalculateNMM := proc(nType::string, kRange::list, dirIn::string, dirOut::string, prefixIn::string,
-                     prefixOut::string, id::integer) 
-  local data, s, fileID, vars := [a,b,c];
-  local R := CayleyTransform(vars);
-  local neighborhood := GetNeighborhood(nType); 
-  local i, sdPlanes := [], trans, NMM:={}, rotSamp; 
-  local percent := -1, Signatures := {}, sig, msg;
-  local n := Grid:-NumNodes();
+CalculateNMM := proc(vars::list, nType::string, kRange::list, db::ComputationRegister,
+                     first::integer, last::integer) 
+  local R := CayleyTransform(vars), N := GetNeighborhood(nType); 
+  local i, sdPlanes := [], trans, rotSamp; 
+  local Signatures := {}, sig;
   local planes := CriticalPlanes(R, neighborhood, kRange);
 
-  # read sample points from a file and convert them to appropriate format
-  data := ImportMatrix(sprintf("%s/%s%d.tsv", dirIn, prefixIN, id), 'source' = 'tsv', 'datatype'='string'); 
-  data := Threads:-Map(proc (x) op(sscanf(x, %a)) end proc, data); 
-
-  # print a progress message
   for i to upperbound(data)[1] do
-    if percent <>  round( i / upperbound(data)[1] * 100 ) then
-      percent := round( i / upperbound(data)[1] * 100 );
-      if percent mod 10 = 0 then
-        printf("[%s]:> Node: %d, finished: %d%%.\n",
-               StringTools:-FormatTime("%Y-%m-%d -- %R"),id, percent); 
-      end if;
-    end if;
     rotSamp := convert(data[i], list); 
-    # discard the sample points for which NMM are already computed
+  # discard the sample points for which NMM are already computed
     sig, sdPlanes := GetOrderedCriticalPlanes(vars, rotSamp, planes); 
     if member( sig, Signatures ) then
       next;
@@ -218,34 +194,29 @@ CalculateNMM := proc(nType::string, kRange::list, dirIn::string, dirOut::string,
 
     trans := RecoverTranslationSamplePoints(sdPlanes); 
     Get3DNMM(neighborhood, trans, rotSamp, NMM, R, vars);
-
     Signatures := Signatures union {sig};
   end do;
 
-  # write the result
-  fileID := fopen(sprintf("%s/%s%d.tsv", dirOur, prefixOut, id), WRITE, TEXT);
-  writedata(fileID, [op(NMM)], string, proc (f, x) fprintf(f, "%a", x) end proc);
-  fclose(fileID);
 end proc:
+
+
+# Procedure: ParallelReduceSamplePoints
+#   Removes sample points which corresponds to the same full dimensional component.
+#
+ ParallelReduceSamplePoints:= proc() 
+  local db:=Object(ComputationRegister, dbPathGlobal), n;
+  n := trunc((NumberOfSamplePoints(db)-1) / Grid:-NumNodes());
+  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db);
+  Grid:-Barrier();
+end proc;
 
 # Procedure: ParallelCalculateNMM
 #   Uses Grid framework to reads data from hard drive and generates NMM
 #
-# Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
-#   dirIn            - a directory which contains sample points
-#   dirOut           - a directory to which save NMM
-#   prefixIn         - a prefix of files which contains sample points
-#   prefixOut        - a prefix of files which will contain NMM
-#
-# Output:
-#   Set of NMM
 ParallelCalculateNMM := proc() 
   local db:=Object(ComputationRegister, dbPathGlobal), n;
-  # events-1 because the last event is a copy of events[-2]
   n := trunc((NumberOfSamplePoints(db)-1) / Grid:-NumNodes());
-  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db, me);
+  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db);
   Grid:-Barrier();
 end proc:
 
@@ -258,7 +229,7 @@ end proc:
 #
 # Output:
 #   Write a set of NMM to a file given by dirOut/prefixOut(id).tsv
-LaunchOnGridGetNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
+LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
                                                         nodes:=kernelopts(numcpus)) 
 
   local db:=Object(ComputationRegister, dbPathGlobal);
