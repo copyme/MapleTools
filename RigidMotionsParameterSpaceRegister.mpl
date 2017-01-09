@@ -429,9 +429,18 @@ module ComputationRegister()
       Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 1";);
       self:-version = 1;
     elif toCompute <> 0 then
+      Close(self);
       error "Before running computation of NMM it is necessary to compute all sample points!
       Please, run first RigidMotionsParameterSpaceDecompostion:-LaunchResumeComputations().";
     fi;
   end proc;
 
+
+  export NumberOfSamplePoints::static := proc(self::ComputationRegister)
+    local stmt, num::integer;
+    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT COUNT(*) FROM SamplePoint;"); 
+    num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
+    Database[SQLite]:-Finalize(stmt);
+    return num;
+  end proc;
 end module;
