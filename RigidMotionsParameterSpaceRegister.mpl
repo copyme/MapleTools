@@ -119,7 +119,7 @@ module ComputationRegister()
         "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
         "TEXT NOT NULL);");
       fi;
-
+    fi;
     return self;
   end proc;
 
@@ -426,12 +426,12 @@ module ComputationRegister()
       "sqlitestudio_temp_table; CREATE TABLE SamplePoint (A TEXT NOT NULL, B TEXT NOT NULL, " ||
       "C TEXT NOT NULL, ID INTEGER PRIMARY KEY AUTOINCREMENT); INSERT INTO SamplePoint (A, B, C) " ||
       "SELECT A, B, C FROM sqlitestudio_temp_table; DROP TABLE sqlitestudio_temp_table;");
-      Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 1";);
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 1;");
       self:-version = 1;
     elif toCompute <> 0 then
       Close(self);
-      error "Before running computation of NMM it is necessary to compute all sample points!
-      Please, run first RigidMotionsParameterSpaceDecompostion:-LaunchResumeComputations().";
+      error "Before running computation of NMM it is necessary to compute all sample points! " ||
+      "Please, run first RigidMotionsParameterSpaceDecompostion:-LaunchResumeComputations().";
     fi;
   end proc;
 
