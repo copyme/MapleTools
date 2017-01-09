@@ -47,14 +47,16 @@
 
 RigidMotionsRecoverNMM := module() 
   option package;
+  uses   RigidMotionsParameterSpaceCommon, RigidMotionsMaplePrimesCode;
 
-  global nTypeGlobal::string, dbPathGlobal::string, kRangeGlobal::list, varsGlobal::list;
+  global nTypeGlobal, dbPathGlobal, kRangeGlobal, varsGlobal;
 
   (*Controls how many sample points should be fetch from the database in one quary.*)
-  local BUFFER_SIZE := 1000;
+  export BUFFER_SIZE := 1000;
 
   export ParallelCalculateNMM, Get3DNMM, RecoverTranslationSamplePoints, GetOrderedCriticalPlanes, 
-         CriticalPlanes, CalculateNMM, LaunchComputeNMM;
+         CriticalPlanes, CalculateNMM, LaunchComputeNMM, FetchSamplePointsFromDB,
+         ParallelReduceSamplePoints;
 
 # Procedure: Get3DNMM
 #   Compute neighbourhood motion maps
@@ -108,18 +110,20 @@ end proc:
 # Output:
 #   Returns signature of order and ordered critical planes 
 #   in the remainder range for X, Y and Z directions.
-GetOrderedCriticalPlanes := proc(vars::list, samplePoints::list, planes::list) 
-  local params;
-  local sdPlanes := [[],[],[]];
+GetOrderedCriticalPlanes := proc(vars::list, samplePoint::list, planes::list) 
+  local params, sdPlanes := [[],[],[]];
   local xSig, ySig, zSig, Signature;
   
   if nops(vars) <> 3 then
     error "Only 3D arrangement is supported.";
   fi;
   
-  sdPlanes[1] := eval(sdPlanes[1], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
-  sdPlanes[2] := eval(sdPlanes[2], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
-  sdPlanes[3] := eval(sdPlanes[3], {vars[1] = samplePoints[1], vars[2] = samplePoints[2], vars[3] = samplePoints[3]});
+  sdPlanes[1] := eval(planes[1], [vars[1] = samplePoint[1], vars[2] = samplePoint[2], vars[3] =
+                                                                                  samplePoint[3]]);
+  sdPlanes[2] := eval(planes[2], [vars[1] = samplePoint[1], vars[2] = samplePoint[2], vars[3] =
+                                                                                  samplePoint[3]]);
+  sdPlanes[3] := eval(planes[3], [vars[1] = samplePoint[1], vars[2] = samplePoint[2], vars[3] =
+                                                                                  samplePoint[3]]);
   
   xSig, sdPlanes[1] := Isort(sdPlanes[1]); 
   ySig, sdPlanes[2] := Isort(sdPlanes[2]); 
@@ -200,20 +204,35 @@ CalculateNMM := proc(vars::list, nType::string, kRange::list, db::ComputationReg
 end proc:
 
 
+FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::integer)
+  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE;
+  if n > last then
+    n := last - fromID;
+  fi;
+  return FetchSamplePoints(db, fromID, n ); 
+end proc;
+
+
 # Procedure: ParallelReduceSamplePoints
 #   Removes sample points which corresponds to the same full dimensional component.
 #
  ParallelReduceSamplePoints:= proc() 
-  local first, last;
+  local first::integer, last::integer;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
-  local planes := CriticalPlanes(R, neighborhood, kRange);
-  local db:=Object(ComputationRegister, dbPathGlobal), n;
+  local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
+  local db:= Object(ComputationRegister, dbPathGlobal), n;
+  local i::integer, buffer, samplePoint, sig::string;
 
   n := trunc(NumberOfSamplePoints(db) / Grid:-NumNodes());
-  first :=  me* n+1; last :=  (me+1)*n;
+  first :=  Grid:-MyNode() * n + 1; last := (Grid:-MyNode() + 1) * n;
 
-  sig, sdPlanes := GetOrderedCriticalPlanes(varsGlobal, rotSamp, planes); 
-
+  for i from first by RigidMotionsRecoverNMM:-BUFFER_SIZE to last do
+    buffer := RigidMotionsRecoverNMM:-FetchSamplePointsFromDB(db, i, last);
+    for samplePoint in buffer do
+      sig := RigidMotionsRecoverNMM:-GetOrderedCriticalPlanes(varsGlobal,samplePoint[2..()],planes)[1];
+      InsertSignature(db, samplePoint[1], sig);
+    od;
+  od;
   Grid:-Barrier();
 end proc;
 
@@ -239,15 +258,17 @@ end proc:
 LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
                                                         nodes:=kernelopts(numcpus)) 
 
-  local db:=Object(ComputationRegister, dbPathGlobal);
+  local db:=Object(ComputationRegister, dbPath);
   PrepareSamplePoints(db);
-  Close(db);
   Grid:-Setup("local"); 
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
-  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelReduceSamplePoints, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
                                                                      numnodes=nodes);
+  
+  ReduceSamplePoints(db);
+  Close(db):
 end proc:
 
 
-end module;
+end module:

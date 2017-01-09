@@ -100,8 +100,10 @@ module ComputationRegister()
 
       stmt := Database[SQLite]:-Prepare(self:-connection, "PRAGMA user_version;");
       while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
-      self:-version := Database[SQLite]:-Fetch(stmt, 0);
-      Database:-Finalize(stmt);
+
+      # Fetch() does not work - "no data left"
+      self:-version := Database[SQLite]:-FetchAll(stmt)[1][1];
+      Database[SQLite]:-Finalize(stmt);
 
       if self:-version = 0 then
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
@@ -114,10 +116,9 @@ module ComputationRegister()
         "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePoint (" ||
         "A TEXT NOT NULL, B TEXT NOT NULL, C TEXT NOT NULL);");
-      else
-         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
-        "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL, IntervalL TEXT NOT NULL, IntervalR " ||
-        "TEXT NOT NULL);");
+      elif self:-version = 1 then
+        Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.SamplePointSignature " ||
+        "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE);");       
       fi;
     fi;
     return self;
@@ -205,6 +206,50 @@ module ComputationRegister()
     od;
   end proc;
 
+
+  export InsertSignature::static := proc(self::ComputationRegister, id::integer, sig::string)
+    local stmt;
+    if self:-version < 1 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+                                             "cacheDB.SamplePointSignature(SP_ID, Signature) " ||
+                                             "VALUES (?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, id);
+    Database[SQLite]:-Bind(stmt, 2, sig);
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+
+  export SynchronizeSamplePointsSignatures::static := proc(self::ComputationRegister)
+    local stmt;
+    if self:-version < 1 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SamplePointSignature SELECT " ||
+            "* FROM cacheDB.SamplePointSignature WHERE NOT EXISTS(SELECT 1 FROM " ||
+            "SamplePointSignature AS S, cacheDB.SamplePointSignature AS SC WHERE " ||
+            "SC.Signature = S.Signature);");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+
+    #clean up cacheDB
+    stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.SamplePointSignature;");
+    while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+
+  export ReduceSamplePoints::static := proc(self::ComputationRegister)
+    if self:-version < 1 then
+      error "The set can be reduced only when database is in the version 1!"; 
+    fi;
+    Database[SQLite]:-Execute(self:-connection,"PRAGMA WAL_CHECKPOINT(FULL);"); # synch data with hdd.
+    Database[SQLite]:-Execute(self:-connection,"DELETE FROM SamplePoint WHERE ID NOT IN " ||
+                                                 "(SELECT SP_ID FROM SamplePointSignature);");
+    Database[SQLite]:-Execute(self:-connection,"VACUUM;");
+  end proc;
 
 # Method: SynchronizeQuadrics
 #   Synchronize quadrics between memory, cache, database and a given database.
@@ -402,6 +447,27 @@ module ComputationRegister()
     return events;
   end proc;
 
+
+  export FetchSamplePoints::static := proc(self::ComputationRegister, first::integer, last::integer)
+    local row, buffer:=Array([]), stmt;
+     if self:-version < 1 then
+      error "This version of FetchSamplePoints requires a database in version 1.";
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, A, B, C FROM SamplePoint " ||
+            "WHERE ID BETWEEN ? AND ?;"); 
+    Database[SQLite]:-Bind(stmt, 1, first);
+    Database[SQLite]:-Bind(stmt, 2, last);
+
+    #Slow but Fetching all can kill with memory consumption
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_ROW do
+      row := Database[SQLite]:-FetchRow(stmt);
+      ArrayTools:-Append(buffer, [row[1], op(map(parse, row[2..()]))], inplace=true);
+    od;
+    Database[SQLite]:-Finalize(stmt);
+    return buffer;
+  end proc;
+
+
   export NumberOfEvents::static := proc(self::ComputationRegister)
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(ID) " ||
                                             "FROM RealAlgebraicNumber;"); 
@@ -418,7 +484,9 @@ module ComputationRegister()
     || "WHERE ID NOT IN (SELECT RANUMID FROM ComputedNumbers) AND ID NOT IN (SELECT MAX(ID) " ||
     "FROM RealAlgebraicNumber);"); 
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do; od;
-    toCompute := Database[SQLite]:-Fetch(stmt, 0);
+
+    # Fetch() does not work - "no data left"
+    toCompute := Database[SQLite]:-FetchAll(stmt)[1][1];
     Database[SQLite]:-Finalize(stmt);
 
     if self:-version = 0 and toCompute = 0 then
@@ -428,6 +496,11 @@ module ComputationRegister()
       "SELECT A, B, C FROM sqlitestudio_temp_table; DROP TABLE sqlitestudio_temp_table;");
       Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 1;");
       self:-version = 1;
+      Database[SQLite]:-Execute(self:-connection,"CREATE TABLE SamplePointSignature (SP_ID " ||
+      "REFERENCES SamplePoint (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, Signature " ||
+      "TEXT NOT NULL UNIQUE);");
+       Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.SamplePointSignature " ||
+      "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE);"); 
     elif toCompute <> 0 then
       Close(self);
       error "Before running computation of NMM it is necessary to compute all sample points! " ||
@@ -439,6 +512,8 @@ module ComputationRegister()
   export NumberOfSamplePoints::static := proc(self::ComputationRegister)
     local stmt, num::integer;
     stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT COUNT(*) FROM SamplePoint;"); 
+
+    # Fetch() does not work - "no data left"
     num::integer := Database[SQLite]:-FetchAll(stmt)[1][1];
     Database[SQLite]:-Finalize(stmt);
     return num;
