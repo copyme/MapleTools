@@ -181,24 +181,13 @@ end proc;
 # Output:
 #   Set of NMM
 #
-CalculateNMM := proc(vars::list, nType::string, kRange::list, db::ComputationRegister,
-                     first::integer, last::integer) 
-  local R := CayleyTransform(vars), N := GetNeighborhood(nType); 
-  local i, sdPlanes := [], trans, rotSamp; 
-  local Signatures := {}, sig;
-  local planes := CriticalPlanes(R, neighborhood, kRange);
+CalculateNMM := proc(vars::list, planes::list, buffer::Array, N::Array, R::Matrix) 
+  local sdPlanes := [], trans, x; 
 
-  for i to upperbound(data)[1] do
-    rotSamp := convert(data[i], list); 
-  # discard the sample points for which NMM are already computed
-    sig, sdPlanes := GetOrderedCriticalPlanes(vars, rotSamp, planes); 
-    if member( sig, Signatures ) then
-      next;
-    end if;
-
+  for x in buffer do
+    sdPlanes := GetOrderedCriticalPlanes(vars, x, planes)[2]; 
     trans := RecoverTranslationSamplePoints(sdPlanes); 
-    Get3DNMM(neighborhood, trans, rotSamp, NMM, R, vars);
-    Signatures := Signatures union {sig};
+    Get3DNMM(N, trans, x, R, vars);
   end do;
 
 end proc:
@@ -233,6 +222,7 @@ end proc;
       InsertSignature(db, samplePoint[1], sig);
     od;
   od;
+  SynchronizeSamplePointsSignatures(db);
   Grid:-Barrier();
 end proc;
 
@@ -260,14 +250,15 @@ LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string
 
   local db:=Object(ComputationRegister, dbPath);
   PrepareSamplePoints(db);
+  Close(db):
   Grid:-Setup("local"); 
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelReduceSamplePoints, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                                     numnodes=nodes);
-  
-  ReduceSamplePoints(db);
-  Close(db):
+                                                                     numnodes=nodes); 
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
+               imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
+                                                                     numnodes=nodes); 
 end proc:
 
 
