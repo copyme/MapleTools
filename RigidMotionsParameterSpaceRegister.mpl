@@ -120,10 +120,8 @@ module ComputationRegister()
       elif self:-version = 1 then
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.SamplePointSignature " ||
         "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE);");       
-        Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.TransSamplePoint (T1 " ||
-        "TEXT NOT NULL, T2 TEXT NOT NULL, T3 TEXT NOT NULL, SP_ID INTEGER NOT NULL);");
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.NMM (NMM TEXT NOT NULL " ||
-        "UNIQUE, TR_ID NOT NULL UNIQUE);");
+        "UNIQUE, SP_ID NOT NULL UNIQUE, T1 TEXT NOT NULL, T2 TEXT NOT NULL, T3 TEXT NOT NULL);");
       fi;
     fi;
     return self;
@@ -250,31 +248,6 @@ module ComputationRegister()
   end proc;
 
 
-  export InsertTranslationalSamplePoint::static := proc(self::ComputationRegister, rotSPID::integer,
-                                                        samplePoint::list)
-    local stmt;
-    if self:-version < 1 then
-      return NULL;
-    fi;
-    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
-                                             "cacheDB.TransSamplePoint(SP_ID, T1, T2, T3) " ||
-                                             "VALUES (?, ?, ?, ?);");
-    Database[SQLite]:-Bind(stmt, 1, rotSPID);
-    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", samplePoint[1]));
-    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", samplePoint[2]));
-    Database[SQLite]:-Bind(stmt, 4, sprintf("%a", samplePoint[3]));
-
-    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
-      Database[SQLite]:-Reset(stmt, clear = true);
-      Database[SQLite]:-Bind(stmt, 1, rotSPID);
-      Database[SQLite]:-Bind(stmt, 2, sprintf("%a", samplePoint[1]));
-      Database[SQLite]:-Bind(stmt, 3, sprintf("%a", samplePoint[2]));
-      Database[SQLite]:-Bind(stmt, 4, sprintf("%a", samplePoint[3]));
-   od;
-    Database[SQLite]:-Finalize(stmt);
-  end proc;
-
-
   export SynchronizeSamplePointsSignatures::static := proc(self::ComputationRegister)
     local stmt;
     if self:-version < 1 then
@@ -298,46 +271,28 @@ module ComputationRegister()
     Database[SQLite]:-Finalize(stmt);
   end proc;
 
-
-  export SynchronizeTranslationalSamplePoint::static := proc(self::ComputationRegister)
-    local stmt;
-    if self:-version < 1 then
-      return NULL;
-    fi;
-    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO TransSamplePoint (T1, T2, " ||
-            "T3) SELECT * FROM cacheDB.TransSamplePoint WHERE NOT " ||
-            "EXISTS(SELECT 1 FROM TransSamplePoint AS T, cacheDB.TransSamplePoint AS " ||
-            "SC WHERE T.T1 = TS.T1 AND T.T2 = TS.T2 AND T.T3 = TS.T3);");
-    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
-      Database[SQLite]:-Reset(stmt);
-    od;
-
-    Database[SQLite]:-Finalize(stmt);
-
-    #clean up cacheDB
-    stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.TransSamplePoint;");
-    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
-      Database[SQLite]:-Reset(stmt);
-    od;
-    Database[SQLite]:-Finalize(stmt);
-  end proc;
-
-
-  export InsertNMM::static := proc(self::ComputationRegister, transSPID::integer, NMM::string )
+  export InsertNMM::static := proc(self::ComputationRegister, ID::integer, NMM::Array, T::list)
     local stmt;
     if self:-version < 1 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
-                                             "cacheDB.NMM(TR_ID, NMM) VALUES (?, ?);");
-    Database[SQLite]:-Bind(stmt, 1, transSPID);
-    Database[SQLite]:-Bind(stmt, 2, NMM);
+                                             "cacheDB.NMM(SP_ID, NMM, T1, T2, T3) VALUES (?, ?, " ||
+                                             "?, ?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, ID);
+    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", NMM));
+    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", T[1]));
+    Database[SQLite]:-Bind(stmt, 4, sprintf("%a", T[2]));
+    Database[SQLite]:-Bind(stmt, 5, sprintf("%a", T[3]));
 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
       Database[SQLite]:-Reset(stmt, clear = true);
-      Database[SQLite]:-Bind(stmt, 1, transSPID);
-      Database[SQLite]:-Bind(stmt, 2, NMM);
-   od;
+      Database[SQLite]:-Bind(stmt, 1, ID);
+      Database[SQLite]:-Bind(stmt, 2, sprintf("%a", NMM));
+      Database[SQLite]:-Bind(stmt, 3, sprintf("%a", T[1]));
+      Database[SQLite]:-Bind(stmt, 4, sprintf("%a", T[2]));
+      Database[SQLite]:-Bind(stmt, 5, sprintf("%a", T[3]));
+    od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
 
@@ -347,9 +302,9 @@ module ComputationRegister()
     if self:-version < 1 then
       return NULL;
     fi;
-    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO NMM (TR_ID, NMM) SELECT * "||
-            "FROM cacheDB.NMM WHERE NOT EXISTS(SELECT 1 FROM NMM AS NM, cacheDB.NM AS CNM " ||
-            "WHERE NM.NMM = CNM.NMM);");
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO NMM (SP_ID, NMM, T1, T2, " ||
+            "T3) SELECT * FROM cacheDB.NMM WHERE NOT EXISTS(SELECT 1 FROM NMM AS NM, cacheDB.NMM " ||
+            "AS CNM WHERE NM.NMM = CNM.NMM);");
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
       Database[SQLite]:-Reset(stmt);
     od;
@@ -665,17 +620,12 @@ module ComputationRegister()
       "CASCADE NOT NULL, Signature TEXT NOT NULL UNIQUE);");
       Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.SamplePointSignature " ||
       "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE);"); 
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE TransSamplePoint (ID " ||
-      "INTEGER PRIMARY KEY AUTOINCREMENT, T1 TEXT NOT NULL, T2 TEXT NOT NULL, T3 TEXT NOT " ||
-      "NULL, SP_ID INTEGER REFERENCES SamplePoint (ID) ON DELETE CASCADE ON UPDATE " ||
-      "CASCADE);");
-      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.TransSamplePoint (T1 " ||
-      "TEXT NOT NULL, T2 TEXT NOT NULL, T3 TEXT NOT NULL, SP_ID INTEGER NOT NULL);");
       Database[SQLite]:-Execute(self:-connection,"CREATE TABLE NMM (ID INTEGER PRIMARY KEY " ||
-      "AUTOINCREMENT, NMM TEXT NOT NULL UNIQUE, TR_ID INTEGER REFERENCES TransSamplePoint " ||
-      "(ID) ON DELETE CASCADE ON UPDATE CASCADE);");
+      "AUTOINCREMENT, NMM TEXT NOT NULL UNIQUE, SP_ID INTEGER REFERENCES SamplePoint " ||
+      "(ID) ON DELETE CASCADE ON UPDATE CASCADE, T1 TEXT NOT NULL, T2 TEXT NOT NULL, T3 " ||
+      "TEXT NOT NULL);");
       Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.NMM (NMM TEXT NOT NULL " ||
-      "UNIQUE, TR_ID NOT NULL UNIQUE);");
+      "UNIQUE, SP_ID NOT NULL, T1 TEXT NOT NULL, T2 TEXT NOT NULL, T3 TEXT NOT NULL);");
     elif toCompute <> 0 then
       Close(self);
       error "Before running computation of NMM it is necessary to compute all sample points! " ||

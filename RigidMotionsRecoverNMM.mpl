@@ -56,27 +56,51 @@ RigidMotionsRecoverNMM := module()
 
   export ParallelCalculateNMM, Get3DNMM, RecoverTranslationSamplePoints, GetOrderedCriticalPlanes, 
          CriticalPlanes, CalculateNMM, LaunchComputeNMM, FetchSamplePointsFromDB,
-         ParallelReduceSamplePoints;
+         FetchTopologicallyDistinctSamplePointsFromDB, ParallelFindTopologicallyDistinctSamplePoints;
+
+
+# Procedure: CriticalPlanes
+#   Compute critical planes in the remainder range
+#
+# Parameters:
+#   R                - the rotation matrix obtained from CayleyTransform
+#   neighborhood     - a neighborhood for which one wants to compute NMM
+#   kRange           - a range of planes to consider
+#
+# Output:
+#   Returns a list of lists each containing critical planes for one direction
+CriticalPlanes := proc(R::Matrix, neighborhood::list, kRange::list)
+  # we remove 7th element -- [0, 0, 0]
+  local n := subsop(7=NULL, neighborhood); 
+  local T := combinat:-cartprod([n, kRange]);
+  local planes := [[],[],[]]; 
+  local params;
+  while not T[finished] do 
+    params := T[nextvalue](); 
+    planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
+    planes[2] := [op(planes[2]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
+    planes[3] := [op(planes[3]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
+  end do;
+ return planes;
+end proc;
+
 
 # Procedure: Get3DNMM
 #   Compute neighbourhood motion maps
 #
 # Parameters:
 #   neighborhood     - a neighborhood for which one wants to compute NMM
-#   samplesTrans     - midpoints of frames in the remainder range
-#   sampleRot        - values of in determines (see CayleyTransform)
-#   NMMContainer     - a reference to a container which stores the output NMM
+#   samplesTrans     - a midpoint of a frame in the remainder range
 #   R                - the rotation matrix obtained from CayleyTransform
-#   vars             - a list of variables in which R is expressed
 #
 # Output:
-#   Returns 3D neighborhood motion maps for given vars and corresponding translations.
-Get3DNMM := proc(neighborhood::list, samplesTrans::list, sampleRot::list, NMMContainer::uneval, R,
-                 vars::list) 
-  local RR := eval(R, [vars[1] = sampleRot[1], vars[2] = sampleRot[2], vars[3] = sampleRot[3]]);
-  local x, NMM := eval(NMMContainer); 
-  NMMContainer := NMM union {seq(map(proc (y) map(round, convert(RR.Vector(3, y)+Vector(3,x), list))
-  end proc, neighborhood),x in samplesTrans)};
+#   Returns 3D neighborhood motion map for given vars and corresponding translations.
+Get3DNMM := proc(neighborhood::list, samplesTrans::Vector, R::Matrix) 
+  local n, NMM := Array([]);
+  for n in neighborhood do
+    ArrayTools:-Append(NMM, round(R.Vector(3, n) + samplesTrans), inplace=true);
+  od;
+  return NMM;
 end proc;
 
 
@@ -84,19 +108,19 @@ end proc;
 #   Compute midpoints of each frame in the remainder range
 #
 # Parameters:
-#   planes            - ordered list of planes in the remainder range
+#   planes            - ordered list of critical planes in the remainder range
 #
 # Output:
 #   Returns centers of frames in the remainder range
 RecoverTranslationSamplePoints := proc(planes::list) 
   local s:
     s := proc(planes::list, i::integer, j::integer, k::integer)
-      return [(1/2)*add(planes[1][i .. i+1]), (1/2)*add(planes[2][j.. j+1]), 
-              (1/2)*add(planes[3][k .. k+1])];
-  end proc:
-  return [Threads:-Seq( seq( seq( s(planes, i, j, k), k=1..nops(planes[3]-1) ),
-  j=1..nops(planes[2]-1) ), i =1..nops(planes[1])-1 )]:
-end proc:
+      return [(1/2) * add(planes[1][i .. i+1]), (1/2)*add(planes[2][j.. j+1]), 
+                                            (1/2)*add(planes[3][k .. k+1])];
+  end proc;
+  return [seq(seq(seq(s(planes, i, j, k), k=1..nops(planes[3]-1)),
+               j=1..nops(planes[2]-1)), i =1..nops(planes[1])-1)];
+end proc;
 
 
 # Procedure: GetOrderedCriticalPlanes
@@ -104,12 +128,12 @@ end proc:
 #
 # Parameters:
 #   vars             - a list of variables
-#   samplePoints     - values of vars[1], vars[2], vars[3] (see CayleyTransform)
+#   samplePoint      - a rotational sample point 
 #   planes           - a precomputed list of planes in the remainder range
 #
 # Output:
-#   Returns signature of order and ordered critical planes 
-#   in the remainder range for X, Y and Z directions.
+#   Returns the ordered critical planes in the remainder range for X, Y and Z directions and order
+#   signature.
 GetOrderedCriticalPlanes := proc(vars::list, samplePoint::list, planes::list) 
   local params, sdPlanes := [[],[],[]];
   local xSig, ySig, zSig, Signature;
@@ -146,50 +170,64 @@ GetOrderedCriticalPlanes := proc(vars::list, samplePoint::list, planes::list)
 end proc:
 
 
-# Procedure: CriticalPlanes
-#   Compute critical planes in the remainder range
-#
-# Parameters:
-#   R                - the rotation matrix obtained from CayleyTransform
-#   neighborhood     - a neighborhood for which one wants to compute NMM
-#   kRange           - a range of planes to consider
-#
-# Output:
-#   Returns a list of lists each containing critical planes for one direction
-CriticalPlanes := proc(R::Matrix, neighborhood::list, kRange::list)
-  # we remove 7th element -- [0, 0, 0]
-  local n := subsop(7=NULL, neighborhood); 
-  local T := combinat:-cartprod([n, kRange]);
-  local planes := [[],[],[]]; 
-  local params;
-  while not T[finished] do 
-    params := T[nextvalue](); 
-    planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
-    planes[2] := [op(planes[2]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[2]]; 
-    planes[3] := [op(planes[3]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[3]];
-  end do;
- return planes;
-end proc;
-
-
 # Procedure: CalculateNMM
 #   Reads data from hard drive and generates NMM
 #
 # Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
+#   vars             - list of variables in which the problem is expressed
+#   planes           - a precomputed list of planes in the remainder range
+#   buffer           - an Array which contains rotational sample points
+#   N                - a given neighborhood
+#   R                - a Matrix computed with Cayley transform
+#   db               - an instance of ComputationRegister
 # Output:
-#   Set of NMM
+#   A neighborhood motion map is saved in the database.
 #
-CalculateNMM := proc(vars::list, planes::list, buffer::Array, N::Array, R::Matrix) 
-  local sdPlanes := [], trans, x; 
-
+CalculateNMM := proc(vars::list, planes::list, buffer::Array, N::list, R::Matrix,
+                                                         db::ComputationRegister) 
+  local sdPlanes, trans, x, RR, y, NMM; 
   for x in buffer do
-    sdPlanes := GetOrderedCriticalPlanes(vars, x, planes)[2]; 
+    RR := eval(R, [vars[1] = x[2], vars[2] = x[3], vars[3] = x[4]]);
+    sdPlanes := GetOrderedCriticalPlanes(vars, x[2..()], planes)[2]; 
     trans := RecoverTranslationSamplePoints(sdPlanes); 
-    Get3DNMM(N, trans, x, R, vars);
+    for y in trans do
+      NMM := Get3DNMM(N, trans, x, RR, vars);
+      InsertTranslationalSamplePoint(x[1], NMM, y);
+    od;
   end do;
+end proc:
 
+
+FetchTopologicallyDistinctSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, 
+                                                                                last::integer)
+  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE;
+  if n > last then
+    n := last - fromID;
+  fi;
+  return FetchTopologicallyDistinctSamplePoints(db, fromID, n); 
+end proc;
+
+
+# Procedure: ParallelCalculateNMM
+#   Uses Grid framework to generates unique NMM.
+#
+ParallelCalculateNMM := proc() 
+  local first::integer, last::integer;
+  local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
+  local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
+  local db:= Object(ComputationRegister, dbPathGlobal), n;
+  local i::integer, buffer, samplePoint, sig::string;
+
+  n := trunc(NumberOfTopologicallyDistinctSamplePoints(db) / Grid:-NumNodes());
+  first :=  Grid:-MyNode() * n + 1; last := (Grid:-MyNode() + 1) * n;
+
+  for i from first by RigidMotionsRecoverNMM:-BUFFER_SIZE to last do
+    buffer := RigidMotionsRecoverNMM:-FetchTopologicallyDistinctSamplePointsFromDB(db, i, last);
+    CalculateNMM(varsGlobal, planes, buffer, N, R, db);
+    SynchronizeNMM(db);
+  od;
+  Close(db);
+  Grid:-Barrier();
 end proc:
 
 
@@ -202,10 +240,11 @@ FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::
 end proc;
 
 
-# Procedure: ParallelReduceSamplePoints
-#   Removes sample points which corresponds to the same full dimensional component.
+# Procedure: ParallelFindTopologicallyDistinctSamplePoints
+#   Finds rotational sample points which lead to unique arrangement of the critical planes in the
+#   remainder range. 
 #
- ParallelReduceSamplePoints:= proc() 
+ ParallelFindTopologicallyDistinctSamplePoints := proc() 
   local first::integer, last::integer;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
   local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
@@ -223,28 +262,23 @@ end proc;
     od;
   od;
   SynchronizeSamplePointsSignatures(db);
+  Close(db);
   Grid:-Barrier();
 end proc;
 
-# Procedure: ParallelCalculateNMM
-#   Uses Grid framework to reads data from hard drive and generates NMM
-#
-ParallelCalculateNMM := proc() 
-  local db:=Object(ComputationRegister, dbPathGlobal), n;
-  n := trunc((NumberOfSamplePoints(db)-1) / Grid:-NumNodes());
-  CalculateNMM(varsGlobal, nTypeGlobal, kRangeGlobal, db);
-  Grid:-Barrier();
-end proc:
 
 # Procedure: LaunchOnGridGetNMM
 #   Setup and run computation on a local grid
 #
 # Parameters:
-#   nType            - size of neighborhood i.e. N_1, N_2, N_3. 
-#   kRange           - a range of planes to consider
+#   vars             - list of variables in which the problem is expressed
+#   nType            - size of neighborhood i.e N1, N2 and N3. 
+#   kRange           - a range of planes of the half-grid
+#   dbPath           - a path to a database file.
+#   nodes            - number of nodes used in the parallel computations
 #
 # Output:
-#   Write a set of NMM to a file given by dirOut/prefixOut(id).tsv
+#   List of unique neighborhood motion maps
 LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
                                                         nodes:=kernelopts(numcpus)) 
 
@@ -253,13 +287,12 @@ LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string
   Close(db):
   Grid:-Setup("local"); 
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
-  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelReduceSamplePoints, 
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
                                                                      numnodes=nodes); 
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                                     numnodes=nodes); 
+                                                                   numnodes=nodes); 
 end proc:
-
 
 end module:
