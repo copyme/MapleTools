@@ -306,7 +306,7 @@ module ComputationRegister()
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO TransSamplePoint (T1, T2, " ||
             "T3) SELECT * FROM cacheDB.TransSamplePoint WHERE NOT " ||
-            "EXISTS(SELECT 1 FROM TransSamplePoint AS T, cacheDB.TransSamplePoint TS " ||
+            "EXISTS(SELECT 1 FROM TransSamplePoint AS T, cacheDB.TransSamplePoint AS " ||
             "SC WHERE T.T1 = TS.T1 AND T.T2 = TS.T2 AND T.T3 = TS.T3);");
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
       Database[SQLite]:-Reset(stmt);
@@ -316,6 +316,48 @@ module ComputationRegister()
 
     #clean up cacheDB
     stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.TransSamplePoint;");
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
+      Database[SQLite]:-Reset(stmt);
+    od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+
+  export InsertNMM::static := proc(self::ComputationRegister, transSPID::integer, NMM::string )
+    local stmt;
+    if self:-version < 1 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
+                                             "cacheDB.NMM(TR_ID, NMM) VALUES (?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, transSPID);
+    Database[SQLite]:-Bind(stmt, 2, NMM);
+
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
+      Database[SQLite]:-Reset(stmt, clear = true);
+      Database[SQLite]:-Bind(stmt, 1, transSPID);
+      Database[SQLite]:-Bind(stmt, 2, NMM);
+   od;
+    Database[SQLite]:-Finalize(stmt);
+  end proc;
+
+
+  export SynchronizeNMM::static := proc(self::ComputationRegister)
+    local stmt;
+    if self:-version < 1 then
+      return NULL;
+    fi;
+    stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO NMM (TR_ID, NMM) SELECT * "||
+            "FROM cacheDB.NMM WHERE NOT EXISTS(SELECT 1 FROM NMM AS NM, cacheDB.NM AS CNM " ||
+            "WHERE NM.NMM = CNM.NMM);");
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
+      Database[SQLite]:-Reset(stmt);
+    od;
+
+    Database[SQLite]:-Finalize(stmt);
+
+    #clean up cacheDB
+    stmt := Database[SQLite]:-Prepare(self:-connection,"DELETE FROM cacheDB.NMM;");
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do
       Database[SQLite]:-Reset(stmt);
     od;
