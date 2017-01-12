@@ -41,7 +41,7 @@ source file):
 
 ```
 with(RigidMotionsParameterSpaceDecompostion);
-ParallelComputeSamplePointsResume([a,b,c], "N1.db", "N1");
+LaunchResumeComputations([a,b,c], "N1.db", "N1");
 ```
 
 Compute neighborhood motion maps (for documentation of the parameters see the
