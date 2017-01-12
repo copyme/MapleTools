@@ -49,7 +49,7 @@ source file):
 
 ```
 with(RigidMotionsRecoverNMM);
-aunchComputeNMM([a,b,c], "N1", [-1,0,1], "N1.db");
+LaunchComputeNMM([a,b,c], "N1", [-1,0,1], "N1.db");
 ```
 
 Additional information
