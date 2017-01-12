@@ -504,7 +504,7 @@ ParallelComputeSamplePointsResume := proc()
   skipped := FetchComputedNumbers(db);
   # events-1 because the last event is a copy of events[-2]
   n := trunc((NumberOfEvents(db)-1) / Grid:-NumNodes());
-  first :=  me* n+1; last :=  (me+1)*n;
+  first :=  me * n + 1; last :=  (me + 1) * n;
   # recreate events
   skipped := FetchComputedNumbers(db);
   events := FetchEvents(db, first, last + 1); 
