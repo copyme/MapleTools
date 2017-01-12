@@ -48,8 +48,15 @@
 RigidMotionsRecoverNMM := module() 
   option package;
   uses   RigidMotionsParameterSpaceCommon, RigidMotionsMaplePrimesCode;
-
-  global nTypeGlobal, dbPathGlobal, kRangeGlobal, varsGlobal;
+  
+  (* String which represents a type of the neighborhood i.e. N1, N2 or N3. *)
+  global nTypeGlobal;
+  (* String which represents the path to the database. *)
+  global dbPathGlobal; 
+  (* List of integers which are the indices of half-grid planes. *)
+  global kRangeGlobal;
+  (* List of the variables in which the problem is expressed. *)
+  global varsGlobal;
 
   (*Controls how many sample points should be fetch from the database in one quary.*)
   export BUFFER_SIZE := 1000;
@@ -67,14 +74,13 @@ RigidMotionsRecoverNMM := module()
 #   neighborhood     - a neighborhood for which one wants to compute NMM
 #   kRange           - a range of planes to consider
 #
-# Output:
+# Output :
 #   Returns a list of lists each containing critical planes for one direction
 CriticalPlanes := proc(R::Matrix, neighborhood::list, kRange::list)
-  # we remove 7th element -- [0, 0, 0]
-  local n := subsop(7=NULL, neighborhood); 
+  # we remove the element [0, 0, 0]
+  local n := subsop(ListTools:-Search([0,0,0], neighborhood)=NULL, neighborhood); 
   local T := combinat:-cartprod([n, kRange]);
-  local planes := [[],[],[]]; 
-  local params;
+  local planes := [[],[],[]], params;
   while not T[finished] do 
     params := T[nextvalue](); 
     planes[1] := [op(planes[1]), (R . Vector(3, params[1]) - Vector(3, params[2]-1/2))[1]]; 
@@ -90,15 +96,15 @@ end proc;
 #
 # Parameters:
 #   neighborhood     - a neighborhood for which one wants to compute NMM
-#   samplesTrans     - a midpoint of a frame in the remainder range
+#   sampleTrans     - a midpoint of a frame in the remainder range
 #   R                - the rotation matrix obtained from CayleyTransform
 #
 # Output:
 #   Returns 3D neighborhood motion map for given vars and corresponding translations.
-Get3DNMM := proc(neighborhood::list, samplesTrans::Vector, R::Matrix) 
-  local n, NMM := Array([]);
+Get3DNMM := proc(neighborhood::list, sampleTrans::Vector, R::Matrix) 
+  local n, NMM := [];
   for n in neighborhood do
-    ArrayTools:-Append(NMM, round(R.Vector(3, n) + samplesTrans), inplace=true);
+    NMM := [op(NMM), convert(map[inplace](round, R.Vector(3, n) + sampleTrans), list)];
   od;
   return NMM;
 end proc;
@@ -179,7 +185,7 @@ end proc:
 #   buffer           - an Array which contains rotational sample points
 #   N                - a given neighborhood
 #   R                - a Matrix computed with Cayley transform
-#   db               - an instance of ComputationRegister
+#   db               - an instance of ComputationRegister with open connection to the database
 # Output:
 #   A neighborhood motion map is saved in the database.
 #
@@ -191,16 +197,30 @@ CalculateNMM := proc(vars::list, planes::list, buffer::Array, N::list, R::Matrix
     sdPlanes := GetOrderedCriticalPlanes(vars, x[2..()], planes)[2]; 
     trans := RecoverTranslationSamplePoints(sdPlanes); 
     for y in trans do
-      NMM := Get3DNMM(N, trans, x, RR, vars);
-      InsertTranslationalSamplePoint(x[1], NMM, y);
+      NMM := Get3DNMM(N, Vector(3, y), RR);
+      InsertNMM(db, x[1], NMM, y);
     od;
   end do;
 end proc:
 
 
+
+# Procedure: FetchTopologicallyDistinctSamplePointsFromDB
+#   Used to fetch topologically distinct rotational sample points from the database. The number of 
+#   sample points is controlled by BUFFER_SIZE.
+#
+# Parameters:
+#   db::ComputationRegister       - an instance of ComputationRegister with open connection to the
+#                                   database.
+#   fromID::integer               - an id of the first sample point from a range to be fetched
+#   last::integer                 - an id of the very last sample points to be fetched
+#
+# Output:
+#   An Array of lists which of each represent a sample point. Note that the first element of each
+#   list is an id of a given sample point.
 FetchTopologicallyDistinctSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, 
                                                                                 last::integer)
-  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE;
+  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE - 1;
   if n > last then
     n := last - fromID;
   fi;
@@ -212,10 +232,10 @@ end proc;
 #   Uses Grid framework to generates unique NMM.
 #
 ParallelCalculateNMM := proc() 
+  local db:= Object(ComputationRegister, dbPathGlobal), n;
   local first::integer, last::integer;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
   local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
-  local db:= Object(ComputationRegister, dbPathGlobal), n;
   local i::integer, buffer, samplePoint, sig::string;
 
   n := trunc(NumberOfTopologicallyDistinctSamplePoints(db) / Grid:-NumNodes());
@@ -223,7 +243,7 @@ ParallelCalculateNMM := proc()
 
   for i from first by RigidMotionsRecoverNMM:-BUFFER_SIZE to last do
     buffer := RigidMotionsRecoverNMM:-FetchTopologicallyDistinctSamplePointsFromDB(db, i, last);
-    CalculateNMM(varsGlobal, planes, buffer, N, R, db);
+    RigidMotionsRecoverNMM:-CalculateNMM(varsGlobal, planes, buffer, N, R, db);
     SynchronizeNMM(db);
   od;
   Close(db);
@@ -231,8 +251,21 @@ ParallelCalculateNMM := proc()
 end proc:
 
 
+# Procedure: FetchSamplePointsFromDB
+#   Used to fetch rotational sample points from the database. The number of sample points is
+#   controlled by BUFFER_SIZE.
+#
+# Parameters:
+#   db::ComputationRegister       - an instance of ComputationRegister with open connection to the
+#                                   database.
+#   fromID::integer               - an id of the first sample point from a range to be fetched
+#   last::integer                 - an id of the very last sample points to be fetched
+#
+# Output:
+#   An Array of lists which of each represent a sample point. Note that the first element of each
+#   list is an id of a given sample point.
 FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::integer)
-  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE;
+  local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE - 1;
   if n > last then
     n := last - fromID;
   fi;
@@ -284,7 +317,7 @@ LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string
 
   local db:=Object(ComputationRegister, dbPath);
   PrepareSamplePoints(db);
-  Close(db):
+  Close(db);
   Grid:-Setup("local"); 
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints, 
@@ -292,7 +325,8 @@ LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string
                                                                      numnodes=nodes); 
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                                   numnodes=nodes); 
+                                                                     numnodes=nodes); 
 end proc:
 
 end module:
+
