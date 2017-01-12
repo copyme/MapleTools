@@ -121,7 +121,7 @@ end proc:
 # Output:
 #   Univariate polynomial obtained from S in the first variable.
 EliminationResultant := proc( S::~set, vars::~list )
-  option cache:
+  option cache;
   local p, var, res := S, permm;
   if nops(S) < 2 then
     error "Wrong size of the input set: %1. Expected size is at least 2.", S;
@@ -159,7 +159,7 @@ end proc:
 #    r - expression, the expression to simplify
 #
 # Output:
-#    An arithmetic expression that has the same squarefree part as r
+#    An arithmetic expression that has the same square free part as r.
 RemoveExponants := proc(r)
         local remove_exponant, sqrr, result;
         remove_exponant := e -> if type(e,`^`) then op(1,e) else e end if;
@@ -184,6 +184,15 @@ OneVariableElimination := proc( p, q, v)
 end proc;
 
 
+# Procedure: GenerateEvents
+#   Generates events from a univariate polynomial (see EventType)
+#
+# Parameters:
+#    x::polynom     - a univariate polynomial
+#    quads::        - a list of quadrics
+#
+# Output:
+#    An Array of events generated from a given univariate polynomial.
 GenerateEvents := proc(x::polynom, quads::list)
   uses ArrayTools;
   local events := Array([]), factored, rootsF, sqrFree, rf;
@@ -200,17 +209,44 @@ GenerateEvents := proc(x::polynom, quads::list)
 end proc;
 
 
-SerializeEvents := proc(events)
+# Procedure: SerializeEvents
+#   Changes (inplace) an Array of events into an Array of strings of unevaluated calls to
+#   the constructor of EventType.
+#
+# Parameters:
+#    events::Array     - an Array of events (see EventType)
+#
+# Output:
+#    An Array of strings to unevaluated calls of the constructor of EventType.
+SerializeEvents := proc(events::Array)
   return map[inplace](proc(x) sprintf("%a", x) end proc, events);
 end proc;
 
 
-ReconstructEvents := proc(events)
+# Procedure: ReconstructEvents
+#   Changes (inplace) an Array of strings of unevaluated calls to the constructor of EventType into
+#   the proper objects.
+#
+# Parameters:
+#    events::Array     - an Array of events (see SerializeEvents)
+#
+# Output:
+#    An Array of EventType.
+ReconstructEvents := proc(events::Array)
   return map[inplace](proc(x) eval(parse(x)) end proc, events);
 end proc;
 
 
-
+# Procedure: ReduceEvents
+#   Returns an array of events such that they are distinct. Each pair of events which are equal are
+#   merged in such a way that a list of quadrics of the second on from a pair is merged with the
+#   list of the first event.
+#
+# Parameters:
+#    L::Array     - an Array of events
+#
+# Output:
+#    An Array of EventType.
 ReduceEvents := proc(L::Array) 
   local R, k, j, last, x; 
   R := Array([]); k := 0; last := 1; 
@@ -230,7 +266,15 @@ ReduceEvents := proc(L::Array)
 end proc;
 
 
-
+# Procedure: AdjustEvents
+#   Returns an array of events such that the first event will contains all the quadris and the last
+#   event will be duplicated with changed interval of the underlaying real algebraic number.
+#
+# Parameters:
+#    L::Array     - an Array of events
+#
+# Output:
+#    An Array of EventType.
 AdjustEvents := proc(events::Array, quadNum::integer, variables::list)
   local boundTmp, lastEvent;
   # assign all quadrics to the first even
@@ -243,7 +287,8 @@ end proc;
 
 
 # Procedure: AlgebraicSort
-#   Sorts RealAlgebraicNumbers or Events. (see types: RealAlgebraicNumber and EventType).
+#   Sorts [if possible in place] RealAlgebraicNumbers or Events. (see types: RealAlgebraicNumber 
+#   and EventType).
 #
 # Parameters:
 #   events  - a list or Array of RealAlgebraicNumbers or Events
