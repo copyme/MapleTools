@@ -23,6 +23,10 @@ Quick Install
    5. RigidMotionsParameterSpaceDecompositionRecursive.mpl
    6. RigidMotionsParameterSpaceDecomposition.mpl
    7. RigidMotionsRecoverNMM.mpl
+3. Additionally, FGb library by Jean-Charles Faugère can be installed to improve generation of
+   univariate polynomials. For more information see
+   [http://www-polsys.lip6.fr/~jcf/FGb/index.html](http://www-polsys.lip6.fr/~jcf/FGb/index.html).
+   **We do recommend to install FGb library in version 1.61.**
 
 
 Examples
@@ -59,5 +63,4 @@ The computation are memory and time expensive. The implementation uses the Maple
 distribute (locally) the computation on given number of nodes. While, the problem for 6-neighbor 
 can be solved on a desktop machine in a relatively short time, computations for bigger image patch
 can take weeks even for a machine with dozens of cores and hundreds of gigabytes of memory.
-
 
