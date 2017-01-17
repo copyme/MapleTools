@@ -81,7 +81,7 @@ ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars2D::list)
     local sys, univ, sol:
     local q := Q2D2[i];
     sys := { q, diff( q, vars2D[2] ) };
-    univ := EliminationResultant(sys, vars2D):
+    univ := UnivariatePolynomial(sys, vars2D):
     return SerializeEvents(GenerateEvents(univ, [i]));
   end proc;
   if grid then
@@ -115,7 +115,7 @@ ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars2D::list)
   s := proc (i, j, vars2D::list)
     local p, sol, univ, sys;
     sys := {Q2D2[i], Q2D2[j]}:
-    univ := EliminationResultant(sys, vars2D);
+    univ := UnivariatePolynomial(sys, vars2D);
     return SerializeEvents(GenerateEvents(univ, [i, j]));
   end proc;
   if grid then

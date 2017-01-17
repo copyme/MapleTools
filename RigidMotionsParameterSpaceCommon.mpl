@@ -50,9 +50,9 @@
 RigidMotionsParameterSpaceCommon := module() 
   option package;
   uses   RigidMotionsMaplePrimesCode;
-  export CayleyTransform, GetNeighborhood, EliminationResultant, RemoveExponants,
-  OneVariableElimination, AlgebraicSort, ReduceEvents, AdjustEvents, GenerateEvents,
-  SerializeEvents, ReconstructEvents;
+  local EliminationResultant, RemoveExponants, OneVariableElimination, EliminationGroebner;
+  export CayleyTransform, GetNeighborhood, AlgebraicSort, ReduceEvents, AdjustEvents, GenerateEvents,
+  SerializeEvents, ReconstructEvents, UnivariatePolynomial;
 
 
 # Procedure: CayleyTransform
@@ -111,6 +111,30 @@ GetNeighborhood := proc( nType::string )
   end if:
 end proc:
 
+
+# Procedure: EliminationGroebner
+#   Computes univariate polynomial using Groebner basis and FGb library.
+#
+# Parameters:
+#   S          - a set of quadrics
+#   vars       - a list of variables
+#
+# Comments:
+#   To use this procedure you need to install Jean-Charles Faugère's FGb library
+#   --http://www-polsys.lip6.fr/~jcf/FGb/FGb/index.html 
+#
+# Output:
+#   Univariate polynomial obtained from S.
+#
+EliminationGroebner := proc(S::list, vars::list)
+  option cache;
+  local univ := op(FGb:-fgb_gbasis_elim(S, 0, vars[2..], vars[1]));
+  if univ = NULL then
+    univ := 0;
+  fi;
+  return univ;
+end proc;
+
 # Procedure: EliminationResultant
 #   Computes univariate polynomial.
 #
@@ -120,7 +144,7 @@ end proc:
 #
 # Output:
 #   Univariate polynomial obtained from S in the first variable.
-EliminationResultant := proc( S::~set, vars::~list )
+EliminationResultant := proc( S::list, vars::list )
   option cache;
   local p, var, res := S, permm;
   if nops(S) < 2 then
@@ -136,20 +160,20 @@ EliminationResultant := proc( S::~set, vars::~list )
     permm := combinat:-permute(res, 2);
     res := [];
     for p in permm do
-      res := [op(res), OneVariableElimination(p[1], p[2], vars[1])]:
+      res := [op(res), OneVariableElimination(p[1], p[2], vars[1])];
     od;
-    return foldl( gcd, op(res) ):
+    return foldl( gcd, op(res) );
   fi;
 
    for var in vars[2..] do
        permm := combinat:-permute(res, 2);
        res := [];
      for p in permm do
-       res := [op(res), OneVariableElimination(p[1], p[2], var)]:
+       res := [op(res), OneVariableElimination(p[1], p[2], var)];
      od;
    od;
 
-  return foldl( gcd, op(res) ):
+  return foldl( gcd, op(res) );
 end proc:
 
 # Procedure: RemoveExponants
@@ -181,6 +205,29 @@ OneVariableElimination := proc( p, q, v)
     else
         return p;
     end if;
+end proc;
+
+
+# Procedure: UnivariatePolynomial
+#   Computes univariate polynomial.
+#
+# Parameters:
+#   S          - a set of quadrics
+#   vars       - a list of variables
+#
+# Comments:
+#   If FGb is installed then fgb_gbasis_elim() is used and EliminationResultant, otherwise.
+#   Note that, build-in solutions like Groebner:-UnivariatePolynomial are not used because of
+#   potential memory explosion or other problems which make them practically useless.
+#
+# Output:
+#   Univariate polynomial obtained from S.
+#
+UnivariatePolynomial := proc(S::set, vars::list)
+  if type(FGb, package) then
+    return EliminationGroebner([op(S)], vars);
+  fi;
+    return EliminationResultant([op(S)], vars);
 end proc;
 
 

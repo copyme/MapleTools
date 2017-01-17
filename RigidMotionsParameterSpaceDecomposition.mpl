@@ -227,7 +227,7 @@ end proc:
 #   List of ranges which contains roots of a system(q, d/db q, d/dc q).
 #
 # Comment:
-#  - only the first direction is supported since EliminationResultant is used
+#  - only the first direction is supported
 ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
   local s, result := Array([]);
   if nops(vars) < 3 then
@@ -237,7 +237,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
    local sys, univ;
    local q := Q[i];
    sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
-   univ := EliminationResultant(sys, vars);
+   univ := UnivariatePolynomial(sys, vars);
    return SerializeEvents(GenerateEvents(univ, [i]));
   end proc:
   map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
@@ -268,7 +268,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer, vars::list )
     prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], vars ),
                                     VectorCalculus:-Gradient( Q[j], vars ) )[dir]:
     sys := { Q[i], Q[j], prod };
-    univ := EliminationResultant(sys, vars);
+    univ := UnivariatePolynomial(sys, vars);
     return SerializeEvents(GenerateEvents(univ, [i, j]));
   end proc:
   map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
@@ -295,7 +295,7 @@ ComputeEventsCTypeGrid := proc( Q, vars::list )
   s := proc (i, j, k, vars::list)
     local univ, sys;
     sys := { Q[i], Q[j], Q[k] }:
-    univ := EliminationResultant(sys, vars);
+    univ := UnivariatePolynomial(sys, vars);
     return SerializeEvents(GenerateEvents(univ, [i, j, k]));
   end proc;
   map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq(seq(seq(s(i, j, k, vars), 
@@ -481,7 +481,6 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   od;
   SynchronizeEvents(db);
   Close(db);
-
   if nodes > 1 then
     SerializeEvents(events);
     Grid:-Setup("local"):
