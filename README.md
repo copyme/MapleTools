@@ -24,7 +24,7 @@ Quick Install
    6. RigidMotionsParameterSpaceDecomposition.mpl
    7. RigidMotionsRecoverNMM.mpl
 3. Additionally, FGb library by Jean-Charles Faugère can be installed to improve generation of
-   univariate polynomials. For more information see
+   univariate polynomials. For more information see:
    [http://www-polsys.lip6.fr/~jcf/FGb/index.html](http://www-polsys.lip6.fr/~jcf/FGb/index.html).
    **We do recommend to install FGb library in version 1.61.**
 
