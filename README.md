@@ -45,7 +45,7 @@ source file):
 
 ```
 with(RigidMotionsParameterSpaceDecompostion);
-ParallelComputeSamplePointsResume([a,b,c], "N1.db", "N1");
+LaunchResumeComputations([a,b,c], "N1.db", "N1");
 ```
 
 Compute neighborhood motion maps (for documentation of the parameters see the
@@ -53,13 +53,13 @@ source file):
 
 ```
 with(RigidMotionsRecoverNMM);
-aunchComputeNMM([a,b,c], "N1", [-1,0,1], "N1.db");
+LaunchComputeNMM([a,b,c], "N1", [-1,0,1], "N1.db");
 ```
 
 Additional information
 ================
 
-The computation are memory and time expensive. The implementation uses the Maple Grid framework to
+The computations are memory and time expensive. The implementation uses the Maple Grid framework to
 distribute (locally) the computation on given number of nodes. While, the problem for 6-neighbor 
 can be solved on a desktop machine in a relatively short time, computations for bigger image patch
 can take weeks even for a machine with dozens of cores and hundreds of gigabytes of memory.
