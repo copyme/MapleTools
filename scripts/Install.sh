@@ -70,7 +70,7 @@ function Uninstall()
 }
 
 # We check if argument is valid and call a specific function related to it.
-function ParseArguments()
+function Parse_Arguments()
 {
   for i in ${@}; do
   case ${i} in
@@ -92,7 +92,7 @@ function ParseArguments()
 # Check if some input parameters were passed.
 case ${@} in
   (*[![:blank:]]*)
-     ParseArguments ${@}
+     Parse_Arguments ${@}
      ;;
   (*)
      echo 'To install MapleTools type: Install.sh -d | --directory <"/path/to/MapleTools">'
