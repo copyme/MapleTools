@@ -95,7 +95,7 @@ case ${@} in
      Parse_Arguments ${@}
      ;;
   (*)
-     echo 'To install MapleTools type: Install.sh -d | --directory <"/path/to/MapleTools">'
+     echo 'To install RigidMotionsMapleTools type: Install.sh -d | --directory <"/path/to/MapleTools">'
      echo 'To clean up ~/.mapleinit type: Install.sh -u | --uninstall'
      exit
     ;;
