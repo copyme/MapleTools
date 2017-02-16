@@ -74,8 +74,8 @@ function Parse_Arguments()
 {
   for i in ${@}; do
   case ${i} in
-    -d|--directory)
-      TOOLS_DIR="${2}"
+    -d=*|--directory=*)
+      TOOLS_DIR="${i#*=}"
       shift # past argument
       Install
     ;;
@@ -84,7 +84,7 @@ function Parse_Arguments()
       Uninstall
     ;;
     *)
-     ;;
+    ;;
   esac
   done
 }
@@ -95,7 +95,7 @@ case ${@} in
      Parse_Arguments ${@}
      ;;
   (*)
-     echo 'To install RigidMotionsMapleTools type: Install.sh -d | --directory <"/path/to/MapleTools">'
+     echo 'To install RigidMotionsMapleTools type: Install.sh -d= | --directory=<"/path/to/MapleTools">'
      echo 'To clean up ~/.mapleinit type: Install.sh -u | --uninstall'
      exit
     ;;
