@@ -31,8 +31,41 @@
 # Get rid of national specifications like "," instead of "." for numbers.
 export LC_ALL=C
 
-BUILD_DIR="./DB"
+BUILD_DIR="./Installer"
+INSTALL_SCRIPT="Install.sh"
+NODE_RUNNER_SCRIPT="NodeRunner.sh"
+EXEC_SCRIPT="Exec.sh"
+ARCHIVE_NAME="DATA"
 
+SOURCE_DIR="../.."
+SOURCE_FILES=("RealAlgebraicNumber.mpl" "RigidMotionsParameterSpaceEvent.mpl"
+"RigidMotionsParameterSpaceCommon.mpl"
+"RigidMotionsParameterSpaceRegister.mpl" "RigidMotionsParameterSpaceDecompositionRecursive.mpl"
+"RigidMotionsParameterSpaceDecomposition.mpl" )
+
+
+THIRD_PARTY_SOURCE_DIR="../../third-party"
+THIRD_PARTY_SOURCE=("MaplePrimesCode.mpl")
+
+function Create_Dirs()
+{
+  # Set the directory in which we create splits of the database.
+  if [ ! -d "${BUILD_DIR}" ]; then
+    mkdir  "${BUILD_DIR}"
+    mkdir  "${BUILD_DIR}/DB"
+    mkdir "${BUILD_DIR}/third-party"
+  else
+    rm -rf "${BUILD_DIR}/"*
+    mkdir "${BUILD_DIR}/DB"
+    mkdir "${BUILD_DIR}/third-party"
+  fi
+  rm -f "${ARCHIVE_NAME}.tar"
+  rm -f "${ARCHIVE_NAME}.tar.gz"
+}
+
+
+# This function splits the main database into chunks which size depends on the number of nodes in
+# the cluster
 function Split_DB()
 {
 
@@ -44,18 +77,18 @@ function Split_DB()
     echo "The database file: \"${DB_FILE}\" does not exist!"
     exit 1
   fi
+
+  # Set the directory in which we create splits of the database.
+  if [ ! -d "${BUILD_DIR}/DB" ]; then
+    echo "The database directory: \"${BUILD_DIR}/DB\" does not exists!"
+    exit 1
+  else
+    cd  "${BUILD_DIR}/DB"
+  fi 
+
   EVENTS_PER_NODE=`echo -e "SELECT ROUND(COUNT(*)/${NO_NODES}) FROM RealAlgebraicNumber;" | sqlite3 "${DB_FILE}"`
   # Convert to integer
   EVENTS_PER_NODE=`printf '%.*f' 0 ${EVENTS_PER_NODE}`
-
-  # Set the directory in which we create splits of the database.
-  if [ ! -d "${BUILD_DIR}" ]; then
-    mkdir  "${BUILD_DIR}"
-    cd "${BUILD_DIR}"
-  else
-    cd  "${BUILD_DIR}"
-    rm -f *
-  fi
 
   for i in $( seq 0 $(( NO_NODES - 1 )) ); do
     # Recreate schemes
@@ -71,6 +104,94 @@ function Split_DB()
     sqlite3 "${DB_FILE}" "SELECT * FROM Events WHERE RANumID BETWEEN $(( i * EVENTS_PER_NODE
     )) AND $(( ( i + 1 ) * EVENTS_PER_NODE ));" | sqlite3 "${i}.db" ".import /dev/stdin Events"
   done
+  # Restore path
+  cd "../.."
+}
+
+# This function put all necessary files into the BUILD_DIR and compress them.
+function Prepare_Files()
+{
+  if [ ! -e "../${INSTALL_SCRIPT}" ]; then
+    echo "The \"${INSTALL_SCRIPT}\" file does not exist!"
+    exit 1
+  fi
+  cp "../${INSTALL_SCRIPT}" "${BUILD_DIR}" 
+  chmod +x "${BUILD_DIR}/${INSTALL_SCRIPT}"
+
+  if [ ! -e "./${NODE_RUNNER_SCRIPT}" ]; then
+    echo "The \"${NODE_RUNNER_SCRIPT}\" file does not exist!"
+    exit 1
+  fi
+  cp "./${NODE_RUNNER_SCRIPT}" "${BUILD_DIR}" 
+  chmod +x "${BUILD_DIR}/${NODE_RUNNER_SCRIPT}"
+  # Copy Maple script
+  cp "${MAPLE_FILE}" "${BUILD_DIR}"
+
+  # Copy source files
+  for i in ${SOURCE_FILES[@]}; do
+    if [ ! -e "${SOURCE_DIR}/${i}" ]; then
+      echo "The file: \"${SOURCE_DIR}/${i}\" does not exist!"
+      exit 1
+    else
+      cp "${SOURCE_DIR}/${i}" "${BUILD_DIR}"
+    fi
+  done
+
+  # Third party source code
+  for i in ${THIRD_PARTY_SOURCE[@]}; do
+    if [ ! -e "${THIRD_PARTY_SOURCE_DIR}/${i}" ]; then
+      echo "The file: \"${THIRD_PARTY_SOURCE_DIR}/${i}\" does not exist!"
+      exit 1
+    else
+      cp "${THIRD_PARTY_SOURCE_DIR}/${i}" "${BUILD_DIR}/third-party"
+    fi 
+  done
+
+  # Compress files
+  cd "${BUILD_DIR}"
+  tar cf "../${ARCHIVE_NAME}.tar" ./*
+  cd ..
+  if [ -e "./${ARCHIVE_NAME}.tar" ]; then
+    gzip "${ARCHIVE_NAME}.tar"
+  else
+    echo  "The file: \"${ARCHIVE_NAME}.tar\" does not exist!"
+    exit 1
+  fi
+
+  # Set variables in the EXEC_SCRIPT
+  if [ ! -e "./${EXEC_SCRIPT}" ]; then
+    echo "The \"${EXEC_SCRIPT}\" file does not exist!"
+    exit 1
+  else
+    TMP_EXEC=$(mktemp -u "Exec.XXXXXX.sh")
+    cp "./${EXEC_SCRIPT}" "${TMP_EXEC}"
+    sed -i "s~__REPLACE__~\"${SHARED_DIR}\"~g" "${TMP_EXEC}"
+    sed -i "s~__REPLACE_MPL__~\"$( basename ${MAPLE_FILE} )\"~g" "${TMP_EXEC}"
+  fi
+
+  # Create a self executable archive
+  if [ -e "${ARCHIVE_NAME}.tar.gz" ]; then
+    cat "${TMP_EXEC}" "${ARCHIVE_NAME}.tar.gz" > "${OUTPUT}"
+    rm "${ARCHIVE_NAME}.tar.gz"
+    rm "${TMP_EXEC}"
+  else
+    echo "The file: \"${ARCHIVE_NAME}.tar.gz\" does not exist!"
+    exit 1
+  fi
+
+  # Test if the archive was created.
+  if [ -e "${OUTPUT}" ]; then
+    chmod +x "${OUTPUT}"
+    MD5=($( md5sum "${OUTPUT}" )) 
+    echo "${MD5} $( basename ${OUTPUT} )" > "${OUTPUT}.md5sum"
+  else
+    echo  "The file: \"${OUTPUT}\" does not exist!"
+  fi
+}
+
+function Print_ControlSum()
+{
+  echo  "The file: \"${OUTPUT}\" was successfully created. Its control md5sum is: \"${MD5}\"."
 }
 
 # We check if argument is valid and call a specific function related to it.
@@ -86,17 +207,63 @@ function Parse_Arguments()
       NO_NODES="${i#*=}"
       shift # past argument
     ;;
+    -o=*|--output=*)
+      OUTPUT="${i#*=}"
+      shift # past argument
+    ;;
+    -s=*|--shared=*)
+      SHARED_DIR="${i#*=}"
+      shift # past argument
+    ;;
+    -m=*|--maple=*)
+      MAPLE_FILE="${i#*=}"
+      shift # past argument
+    ;;
     *)
     ;;
   esac
   done
+  if [ -z "${DB_FILE}" ]; then
+    echo "You have to use the parameter -u=<file.db> to provide the path to the database file!"
+    exit 1
+  fi
+  if [ -z "${NO_NODES}" ]; then
+    echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid
+    Engine!"
+    exit 1
+  fi
+  if [ -z "${OUTPUT}" ]; then
+    echo "You have to use the parameter -o=<file.shx> to provide the name of the output archive!"
+    exit 1
+  fi
+  if [ -e "${OUTPUT}" ]; then
+    echo "The file: \"${OUTPUT}\" already exists!"
+    exit 1
+  fi
+  if [ -z "${SHARED_DIR}" ]; then
+    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by
+    the nodes in Sun Grid Engine!"
+    exit 1
+  fi
+  if [ -z "${MAPLE_FILE}" ]; then
+    echo "You have to use the parameter -m=<file.mpl> to provide the path to the maple code! This
+    code will be run on each node."
+    exit 1
+  fi
+  if [ ! -e "${MAPLE_FILE}" ]; then
+    echo "The file: \"${MAPLE_FILE}\" does not exist!"
+    exit 1
+  fi
 }
 
 # Check if some input parameters were passed.
 case ${@} in
   (*[![:blank:]]*)
      Parse_Arguments ${@}
+     Create_Dirs
      Split_DB
+     Prepare_Files
+     Print_ControlSum
      ;;
   (*)
      echo 'TODO'
