@@ -228,8 +228,7 @@ function Parse_Arguments()
     exit 1
   fi
   if [ -z "${NO_NODES}" ]; then
-    echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid
-    Engine!"
+    echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid Engine!"
     exit 1
   fi
   if [ -z "${OUTPUT}" ]; then
@@ -241,13 +240,11 @@ function Parse_Arguments()
     exit 1
   fi
   if [ -z "${SHARED_DIR}" ]; then
-    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by
-    the nodes in Sun Grid Engine!"
+    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by the nodes in Sun Grid Engine!"
     exit 1
   fi
   if [ -z "${MAPLE_FILE}" ]; then
-    echo "You have to use the parameter -m=<file.mpl> to provide the path to the maple code! This
-    code will be run on each node."
+    echo "You have to use the parameter -m=<file.mpl> to provide the path to the maple code! This code will be run on each node."
     exit 1
   fi
   if [ ! -e "${MAPLE_FILE}" ]; then
@@ -266,8 +263,13 @@ case ${@} in
      Print_ControlSum
      ;;
   (*)
-     echo 'TODO'
-     exit
+     
+    echo "You have to use the parameter -u=<file.db> to provide the path to the database file!"
+    echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid Engine!"
+    echo "You have to use the parameter -o=<file.shx> to provide the name of the output archive!"
+    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by the nodes in Sun Grid Engine!"
+    echo "You have to use the parameter -m=<file.mpl> to provide the path to the maple code! This code will be run on each node."
+    exit
     ;;
 esac
 

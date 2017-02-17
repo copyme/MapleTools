@@ -33,23 +33,24 @@ SHARED_DIR=__REPLACE__
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
 
+if ! hash qsub 2>/dev/null; then
+  echo "This script relay on Sun Engine Grid tools! You need to install them."
+  exit 1
+fi
+
 export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
 
 ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
 
 tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
 
-CDIR=`pwd`
 cd ${TMP_DIR}
 
 for f in ./DB/*.db; do
-  ./${NODE_RUNNER_SCRIPT} "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  qsub ./${NODE_RUNNER_SCRIPT} "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
-
-
-#cd "${CDIR}"
-#rm -rf "${TMP_DIR}
 
 exit 0
 
+# Do not add anything below the next line!!!!
 __ARCHIVE_BELOW__

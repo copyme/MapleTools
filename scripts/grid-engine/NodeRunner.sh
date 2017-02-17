@@ -32,10 +32,10 @@ INSTALL_SCRIPT="Install.sh"
 MAPLE_FILE="${3}"
 DB_FILE="${2}"
 
-#if ! hash maple 2>/dev/null; then
-  #echo "This script relay on Maple! You need to install it."
-  #exit 1
-#fi
+if ! hash maple 2>/dev/null; then
+  echo "This script relay on Maple! You need to install it."
+  exit 1
+fi
 
 # Install Maple scripts
 ./${INSTALL_SCRIPT} -d="${1}"
