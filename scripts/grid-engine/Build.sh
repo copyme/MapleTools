@@ -263,7 +263,6 @@ case ${@} in
      Print_ControlSum
      ;;
   (*)
-     
     echo "You have to use the parameter -u=<file.db> to provide the path to the database file!"
     echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid Engine!"
     echo "You have to use the parameter -o=<file.shx> to provide the name of the output archive!"

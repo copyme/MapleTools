@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# The script inspired by http://www.linuxjournal.com/node/1005818
+
 # Copyright (c) 2017, Kacper Pluta <kacper.pluta@esiee.fr>
 # All rights reserved.
 
@@ -33,10 +35,10 @@ SHARED_DIR=__REPLACE__
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
 
-if ! hash qsub 2>/dev/null; then
-  echo "This script relay on Sun Engine Grid tools! You need to install them."
-  exit 1
-fi
+#if ! hash qsub 2>/dev/null; then
+  #echo "This script relay on Sun Engine Grid tools! You need to install them."
+  #exit 1
+#fi
 
 export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
 
@@ -46,8 +48,12 @@ tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
 
 cd ${TMP_DIR}
 
+#for f in ./DB/*.db; do
+  #qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+#done
+
 for f in ./DB/*.db; do
-  qsub ./${NODE_RUNNER_SCRIPT} "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  ./${NODE_RUNNER_SCRIPT} "${TMP_DIR}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 exit 0

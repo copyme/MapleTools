@@ -40,7 +40,7 @@ function Check_Files()
 {
   for i in ${FILES[@]}; do
     if [ ! -e "${TOOLS_DIR}/${i}" ]; then
-      echo "The file: \"${TOOLS_DIR}/${i}\" does not exists!"
+      echo "The file: \"${TOOLS_DIR}/${i}\" does not exist!"
       return 1
     fi
   done
@@ -55,7 +55,7 @@ function Install()
       echo "read \"${TOOLS_DIR}/${i}\":" >> "${HOME}/.mapleinit"
     done
   elif [ ! -d "${TOOLS_DIR}" ]; then
-    echo "The directory: \"${TOOLS_DIR}\" does not exists!"
+    echo "The directory: \"${TOOLS_DIR}\" does not exist!"
   fi
 }
 

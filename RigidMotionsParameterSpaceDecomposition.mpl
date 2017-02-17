@@ -505,7 +505,6 @@ ParallelComputeSamplePointsResume := proc()
   n := trunc((NumberOfEvents(db)-1) / Grid:-NumNodes());
   first :=  me * n + 1; last :=  (me + 1) * n;
   # recreate events
-  skipped := FetchComputedNumbers(db);
   events := FetchEvents(db, first, last + 1); 
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, events, first , last, vars, db, skipped);
   Close(db);

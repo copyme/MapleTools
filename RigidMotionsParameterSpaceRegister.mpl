@@ -486,12 +486,18 @@ module ComputationRegister()
 #   An Array of EventType.
 #
   export FetchEvents::static := proc(self::ComputationRegister, first::integer, last::integer)
-    local row, events:=Array([]);
-    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
+    local row, events:=Array([]), lowerID;
+    local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MIN(ID) FROM RealAlgebraicNumber;");
+
+    while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
+    lowerID := Database[SQLite]:-Fetch(stmt, 0) - 1;
+    Database[SQLite]:-Finalize(stmt);
+    
+    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
     "IntervalR, group_concat(QuadID) FROM RealAlgebraicNumber JOIN EVENTS " ||
     "ON ID = RANUMID WHERE ID BETWEEN ? AND ? GROUP BY ID ORDER BY ID;"); 
-    Database[SQLite]:-Bind(stmt, 1, first);
-    Database[SQLite]:-Bind(stmt, 2, last);
+    Database[SQLite]:-Bind(stmt, 1, lowerID + first);
+    Database[SQLite]:-Bind(stmt, 2, lowerID + last);
 
     #Slow but Fetching all can kill with memory consumption
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do
@@ -580,7 +586,7 @@ module ComputationRegister()
 #
   export NumberOfEvents::static := proc(self::ComputationRegister)
     local stmt, num;
-    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT MAX(ID) " ||
+    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT COUNT(ID) " ||
                                             "FROM RealAlgebraicNumber;"); 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     num := Database[SQLite]:-Fetch(stmt, 0);
