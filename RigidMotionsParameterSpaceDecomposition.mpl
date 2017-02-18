@@ -54,9 +54,10 @@ RigidMotionsParameterSpaceDecompostion := module()
          ComputeAsymptoticABEventsGrid, ComputeAsymptoticAAEvents, 
          ComputeEventsFromAlgebraicNumbers, IsAsymptotic;
          
-  export IsAsymptoticIntersection, LaunchComputeSamplePoints, 
-         LaunchResumeComputations, ComputeSamplePoints, ParallelComputeSamplePoints,
-         ParallelComputeSamplePointsResume;
+         # Only the procedures with prefix Launch* should be called! Other are exported only for 
+         # the grid framework.
+  export IsAsymptoticIntersection, ComputeSamplePoints, ParallelComputeSamplePoints,
+         LaunchComputeEvents, LaunchComputeSamplePoints; 
 
   #Variables shared by grid nodes;
   global Q, events, vars, dbPath, skipped;
@@ -387,6 +388,45 @@ ComputeEventsFromAlgebraicNumbers := proc( Q, vars::list )
 end proc:
 
 
+# Procedure: LaunchComputeEvents
+#   Computes sorted list of events for rotational part of rigid motions using the grid framework
+#
+#
+# Parameters:
+#   variables     - list of variables in which the problem is expressed
+#   databasePath  - a path to a copy of the database CompRegister.db
+#   nType         - neighborhood type: N1, N2 or N3.
+#   kRange        - range of grid lines passed as a list
+# Output:
+#   It populates a database given by databasePath.
+LaunchComputeEvents := proc(variables::list, databasePath::string, nType::string, kRange::list) 
+  local R, i, mesg, db:=Object(ComputationRegister, databasePath);
+  vars:=variables;
+  dbPath:=databasePath;
+  mesg:=kernelopts(printbytes=false);
+  R := CayleyTransform(variables);
+  Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
+       op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
+       op(ComputeSetOfQuadrics(R, nType, 3, kRange)), op(variables)]);
+  for i from 1 to nops(Q) do
+    InsertQuadric(db, i, Q[i]);
+  od;
+  SynchronizeQuadrics(db);
+  events := ComputeEventsFromAlgebraicNumbers(Q, variables);
+  events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
+                                                                                          events);
+  events := ReduceEvents(events);
+  AdjustEvents(events, upperbound(Q), variables);
+  #Insert events into the register
+  for i from 1 to upperbound(events) do
+    InsertEvent(db, i, events[i]);
+  od;
+  SynchronizeEvents(db);
+  Close(db);
+  mesg:=kernelopts(printbytes=mesg):
+end proc:
+
+
 # Procedure: ComputeSamplePoints
 #   Computes sample points for rotational part of rigid motions
 #
@@ -430,73 +470,6 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 ParallelComputeSamplePoints := proc()
-  local me, n;
-  local db:=Object(ComputationRegister, dbPath);
-  me := Grid:-MyNode();
-  # events-1 because the last event is a copy of events[-2]
-  n := trunc((upperbound(events)-1)/ Grid:-NumNodes());
-  # recreate events
-  ReconstructEvents(events);
-  RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, events, me*n+1,(me+1)*n, vars, 
-                                                                                  db, []);
-  Close(db);
-  Grid:-Barrier();
-end proc:
-
-
-# Procedure: LaunchOnComputeSamplePoints
-#   Computes sample points for rotational part of rigid motions using the grid framework
-#
-#
-# Parameters:
-#   variables     - list of variables in which the problem is expressed
-#   databasePath  - a path to a copy of the database CompRegister.db
-#   nType         - neighborhood type: N1, N2 or N3.
-#   kRange        - range of grid lines passed as a list
-#   nodes         - number of nodes used in the parallel computations
-# Output:
-#   It populates a database given by databasePath.
-LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
-                                  kRange::list, nodes:=kernelopts(numcpus)) 
-  local R, i, mesg, db:=Object(ComputationRegister, databasePath);
-  vars:=variables;
-  dbPath:=databasePath;
-  mesg:=kernelopts(printbytes=false);
-  R := CayleyTransform(variables);
-  Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
-       op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
-       op(ComputeSetOfQuadrics(R, nType, 3, kRange)), op(variables)]);
-  for i from 1 to nops(Q) do
-    InsertQuadric(db, i, Q[i]);
-  od;
-  SynchronizeQuadrics(db);
-  events := ComputeEventsFromAlgebraicNumbers(Q, variables);
-  events := select[flatten](proc(x) evalb(GetInterval(GetRealAlgebraicNumber(x))[2] >= 0) end proc,
-                                                                                          events);
-  events := ReduceEvents(events);
-  AdjustEvents(events, upperbound(Q), variables);
-  #Insert events into the register
-  for i from 1 to upperbound(events) do
-    InsertEvent(db, i, events[i]);
-  od;
-  SynchronizeEvents(db);
-  Close(db);
-  if nodes > 1 then
-    SerializeEvents(events);
-    Grid:-Setup("local"):
-    Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
-                 imports=['Q', 'events', 'vars', 'dbPath'], numnodes=nodes);
-  else
-    ComputeSamplePoints(Q, events, 1, upperbound(events) - 1, variables, db, skipped);             
-  fi;
-  mesg:=kernelopts(printbytes=mesg);
-end proc:
-
-
-# Procedure: ParallelComputeSamplePointsResume
-#   Computes sample points for rotational part of rigid motions. It should be call via Grid
-#   framework.
-ParallelComputeSamplePointsResume := proc()
   local me, n, events, skipped, first, last, offset;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
@@ -512,7 +485,7 @@ ParallelComputeSamplePointsResume := proc()
   Grid:-Barrier();
 end proc:
 
-# Procedure: LaunchResumeComputations
+# Procedure: LaunchComputeSamplePoints
 #   Resumes computations of sample points for rotational part of rigid motions using
 #   the grid framework.
 #
@@ -524,7 +497,7 @@ end proc:
 #   nodes         - number of nodes used in the parallel computations
 # Output:
 #   It populates a database given by databasePath.
-LaunchResumeComputations := proc(variables::list, databasePath::string, nType::string, 
+LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
                                  nodes:=kernelopts(numcpus))
   local mesg, db:=Object(ComputationRegister, databasePath);
   vars:=variables;
@@ -533,7 +506,7 @@ LaunchResumeComputations := proc(variables::list, databasePath::string, nType::s
   Q := FetchQuadrics(db);
   Close(db);
   Grid:-Setup("local");
-  Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePointsResume, 
+  Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
                imports=['Q', 'vars', 'dbPath'], numnodes=nodes);
   mesg:=kernelopts(printbytes=mesg);
 end proc;

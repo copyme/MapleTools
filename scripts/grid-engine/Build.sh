@@ -165,7 +165,6 @@ function Prepare_Files()
   else
     TMP_EXEC=$(mktemp -u "Exec.XXXXXX.sh")
     cp "./${EXEC_SCRIPT}" "${TMP_EXEC}"
-    sed -i "s~__REPLACE__~\"${SHARED_DIR}\"~g" "${TMP_EXEC}"
     sed -i "s~__REPLACE_MPL__~\"$( basename ${MAPLE_FILE} )\"~g" "${TMP_EXEC}"
   fi
 
@@ -211,10 +210,6 @@ function Parse_Arguments()
       OUTPUT="${i#*=}"
       shift # past argument
     ;;
-    -s=*|--shared=*)
-      SHARED_DIR="${i#*=}"
-      shift # past argument
-    ;;
     -m=*|--maple=*)
       MAPLE_FILE="${i#*=}"
       shift # past argument
@@ -224,7 +219,7 @@ function Parse_Arguments()
   esac
   done
   if [ -z "${DB_FILE}" ]; then
-    echo "You have to use the parameter -u=<file.db> to provide the path to the database file!"
+    echo "You have to use the parameter -d=<file.db> to provide the path to the database file!"
     exit 1
   fi
   if [ -z "${NO_NODES}" ]; then
@@ -237,10 +232,6 @@ function Parse_Arguments()
   fi
   if [ -e "${OUTPUT}" ]; then
     echo "The file: \"${OUTPUT}\" already exists!"
-    exit 1
-  fi
-  if [ -z "${SHARED_DIR}" ]; then
-    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by the nodes in Sun Grid Engine!"
     exit 1
   fi
   if [ -z "${MAPLE_FILE}" ]; then
@@ -263,10 +254,9 @@ case ${@} in
      Print_ControlSum
      ;;
   (*)
-    echo "You have to use the parameter -u=<file.db> to provide the path to the database file!"
+    echo "You have to use the parameter -d=<file.db> to provide the path to the database file!"
     echo "You have to use the parameter -n=<integer> to provide the number of nodes in the Sun Grid Engine!"
     echo "You have to use the parameter -o=<file.shx> to provide the name of the output archive!"
-    echo "You have to use the parameter -s=</path/> to provide the path to the directory shared by the nodes in Sun Grid Engine!"
     echo "You have to use the parameter -m=<file.mpl> to provide the path to the maple code! This code will be run on each node."
     exit
     ;;

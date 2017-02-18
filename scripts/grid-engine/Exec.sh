@@ -31,9 +31,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # This variable is set by the Build.sh script.
-SHARED_DIR=__REPLACE__
+SHARED_DIR=${1}
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
+
+
+if [ -z "${SHARED_DIR}" ]; then
+    echo "You have to provide a path to the shared directory! Please, type: ${0} </path/to/shared/directory>"
+    exit 1
+fi
+
+if [ ! -e "${SHARED_DIR}" ]; then
+    echo "Provided shared directory: \"${SHARED_DIR}\" does not exist!"
+    exit 1
+fi
 
 #if ! hash qsub 2>/dev/null; then
   #echo "This script relay on Sun Engine Grid tools! You need to install them."
