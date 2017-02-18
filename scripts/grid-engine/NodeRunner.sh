@@ -42,7 +42,7 @@ fi
 TMP_MPL=$(mktemp -u "/tmp/MapleScript.XXXXXX.mpl")
 cp "${MAPLE_FILE}" "${TMP_MPL}"
 sed -i "s~__REPLACE__~${DB_FILE}~g" "${TMP_MPL}"
-maple -F "${TMP_MPL}"
+maple "${TMP_MPL}"
 
 # Uninstall Maple scripts
 rm "${TMP_MPL}" 
