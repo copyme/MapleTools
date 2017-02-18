@@ -480,7 +480,7 @@ export FetchLowerEventID := proc(self::ComputationRegister)
     lowerID := Database[SQLite]:-Fetch(stmt, 0);
     Database[SQLite]:-Finalize(stmt);
     return lowerID;
-end proc
+end proc;
 
 # Method: FetchEvents
 #    Fetch events from the database.
