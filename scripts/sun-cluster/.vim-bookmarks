@@ -1,0 +1,3 @@
+let l:bm_file_version = 1
+let l:bm_sessions = {'default': {'/home/kacper/Projects/MapleTools/scripts/grid-engine/Build.sh': [{'sign_idx': 9500, 'line_nr': 100, 'content': '    echo "PRAGMA synchronous = NORMAL;" | sqlite3 "${i}.db" > /dev/null'},],}}
+let l:bm_current_session = 'default'
