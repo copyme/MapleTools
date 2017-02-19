@@ -97,6 +97,8 @@ function Split_DB()
     sqlite3 "${DB_FILE}" '.schema Events' | sqlite3 "${i}.db"
     sqlite3 "${DB_FILE}" '.schema Quadric' | sqlite3 "${i}.db"
     sqlite3 "${DB_FILE}" '.schema RealAlgebraicNumber' | sqlite3 "${i}.db"
+    echo "PRAGMA synchronous = NORMAL;" | sqlite3 "${i}.db" > /dev/null
+    echo "PRAGMA journal_mode = WAL;" | sqlite3 "${i}.db" > /dev/null
     # Copy data
     sqlite3 "${DB_FILE}" "SELECT * FROM Quadric;" | sqlite3 "${i}.db" ".import /dev/stdin Quadric"
     sqlite3 "${DB_FILE}" "SELECT * FROM RealAlgebraicNumber WHERE ID BETWEEN $(( i * EVENTS_PER_NODE
