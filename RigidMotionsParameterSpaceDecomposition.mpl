@@ -468,14 +468,18 @@ end proc:
 #   Computes sample points for rotational part of rigid motions. It should be call via Grid
 #   framework.
 ParallelComputeSamplePoints := proc()
-  local me, n, events, skipped, first, last, offset;
+  local me, n, events, skipped, first, last, offset, noEvents;
   local db:=Object(ComputationRegister, dbPath);
   me := Grid:-MyNode();
   skipped := FetchComputedNumbers(db);
   offset := FetchLowerEventID(db) - 1;
+  noEvents := NumberOfEvents(db);
   # events-1 because the last event is a copy of events[-2]
-  n := trunc((NumberOfEvents(db)-1) / Grid:-NumNodes());
+  n := trunc((noEvents-1) / Grid:-NumNodes());
   first := offset + me * n + 1; last := offset + (me + 1) * n;
+  if me = Grid:-NumNodes() - 1 then
+    last := last + ((noEvents + offset) - (last + 1));
+  fi;
   # recreate events
   events := FetchEvents(db, first, last + 1); 
   RigidMotionsParameterSpaceDecompostion:-ComputeSamplePoints(Q, events, first , last, vars, db, skipped);
