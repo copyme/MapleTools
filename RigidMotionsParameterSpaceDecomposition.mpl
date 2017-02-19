@@ -400,10 +400,9 @@ end proc:
 # Output:
 #   It populates a database given by databasePath.
 LaunchComputeEvents := proc(variables::list, databasePath::string, nType::string, kRange::list) 
-  local R, i, mesg, db:=Object(ComputationRegister, databasePath);
+  local R, i,db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
-  mesg:=kernelopts(printbytes=false);
   R := CayleyTransform(variables);
   Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
        op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
@@ -423,7 +422,6 @@ LaunchComputeEvents := proc(variables::list, databasePath::string, nType::string
   od;
   SynchronizeEvents(db);
   Close(db);
-  mesg:=kernelopts(printbytes=mesg):
 end proc:
 
 
@@ -499,16 +497,14 @@ end proc:
 #   It populates a database given by databasePath.
 LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::string, 
                                  nodes:=kernelopts(numcpus))
-  local mesg, db:=Object(ComputationRegister, databasePath);
+  local db:=Object(ComputationRegister, databasePath);
   vars:=variables;
   dbPath:=databasePath;
-  mesg:=kernelopts(printbytes=false):
   Q := FetchQuadrics(db);
   Close(db);
   Grid:-Setup("local");
   Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
                imports=['Q', 'vars', 'dbPath'], numnodes=nodes);
-  mesg:=kernelopts(printbytes=mesg);
 end proc;
 
 end module:
