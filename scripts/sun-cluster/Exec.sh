@@ -46,10 +46,10 @@ if [ ! -e "${SHARED_DIR}" ]; then
     exit 1
 fi
 
-#if ! hash qsub 2>/dev/null; then
-  #echo "This script relay on Sun Engine Grid tools! You need to install them."
-  #exit 1
-#fi
+if ! hash qsub 2>/dev/null; then
+  echo "This script relay on Sun Engine Grid tools! You need to install them."
+  exit 1
+fi
 
 export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
 
@@ -59,12 +59,8 @@ tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
 
 cd ${TMP_DIR}
 
-#for f in ./DB/*.db; do
-  #qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
-#done
-
 for f in ./DB/*.db; do
-  ./${NODE_RUNNER_SCRIPT} "${TMP_DIR}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 exit 0

@@ -101,9 +101,9 @@ function Split_DB()
     echo "PRAGMA journal_mode = WAL;" | sqlite3 "${i}.db" > /dev/null
     # Copy data
     sqlite3 "${DB_FILE}" "SELECT * FROM Quadric;" | sqlite3 "${i}.db" ".import /dev/stdin Quadric"
-    sqlite3 "${DB_FILE}" "SELECT * FROM RealAlgebraicNumber WHERE ID BETWEEN $(( i * EVENTS_PER_NODE
+    sqlite3 "${DB_FILE}" "SELECT * FROM RealAlgebraicNumber WHERE ID BETWEEN $(( i *(EVENTS_PER_NODE + 1)
     )) AND $(( ( i + 1 ) * (EVENTS_PER_NODE + 1) ));" | sqlite3 "${i}.db" ".import /dev/stdin RealAlgebraicNumber"
-    sqlite3 "${DB_FILE}" "SELECT * FROM Events WHERE RANumID BETWEEN $(( i * EVENTS_PER_NODE
+    sqlite3 "${DB_FILE}" "SELECT * FROM Events WHERE RANumID BETWEEN $(( i * (EVENTS_PER_NODE + 1)
     )) AND $(( ( i + 1 ) * (EVENTS_PER_NODE + 1) ));" | sqlite3 "${i}.db" ".import /dev/stdin Events"
   done
   # Restore path
