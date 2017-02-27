@@ -28,22 +28,18 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-INSTALL_SCRIPT="Install.sh"
-MAPLE_FILE="${3}"
-DB_FILE="${2}"
+MAPLE_FILE="${2}"
+DB_FILE="${1}"
 
 if ! hash maple 2>/dev/null; then
   echo "This script relay on Maple! You need to install it."
   exit 1
 fi
 
-# Install Maple scripts
-./${INSTALL_SCRIPT} -d="${1}"
 TMP_MPL=$(mktemp -u "/tmp/MapleScript.XXXXXX.mpl")
 cp "${MAPLE_FILE}" "${TMP_MPL}"
 sed -i "s~__REPLACE__~${DB_FILE}~g" "${TMP_MPL}"
 maple "${TMP_MPL}"
 
-# Uninstall Maple scripts
+# Remove tmp file
 rm "${TMP_MPL}" 
-./${INSTALL_SCRIPT} -u

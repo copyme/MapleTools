@@ -32,6 +32,7 @@
 
 # This variable is set by the Build.sh script.
 SHARED_DIR=${1}
+INSTALL_SCRIPT="Install.sh"
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
 
@@ -59,8 +60,14 @@ tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
 
 cd ${TMP_DIR}
 
+# Uninstall scripts -- if installed before
+./${INSTALL_SCRIPT} -u
+
+# Install Maple scripts
+./${INSTALL_SCRIPT} -d="${TMP_DIR}"
+
 for f in ./DB/*.db; do
-  qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}" "${TMP_DIR}/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 exit 0
