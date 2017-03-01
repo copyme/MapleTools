@@ -508,7 +508,7 @@ LaunchComputeSamplePoints := proc(variables::list, databasePath::string, nType::
   Close(db);
   Grid:-Setup("local");
   Grid:-Launch(RigidMotionsParameterSpaceDecompostion:-ParallelComputeSamplePoints, 
-               imports=['Q', 'vars', 'dbPath'], numnodes=nodes);
+               imports=['Q', 'vars', 'dbPath'], numnodes=nodes, allexternal=false);
 end proc;
 
 end module:
