@@ -343,19 +343,9 @@ end proc;
 # Output:
 #   A increasingly sorted list or Array.
 AlgebraicSort :=proc(events)
-  # In maple 2015.2 there is a bug which causes: stack limit reached if sorting an empty Array
-  if not StringTools:-Has(kernelopts(version), "Maple 2016") and upperbound(events) <> 0 then
-      events := sort(events, 
-                           proc( l, r ) 
-                             if Compare( l, r ) = -1 then
-                               return true:
-                             else 
-                               return false:
-                             fi:
-                           end proc
-                  );
-  elif StringTools:-Has(kernelopts(version), "Maple 2016") then
-      sort['inplace'](events, 
+  # In Maple  <2016 there is a bug which causes: stack limit reached if sorting an empty Array
+  if upperbound(events) <> 0 then
+     return sort['inplace'](events, 
                            proc( l, r ) 
                              if Compare( l, r ) = -1 then
                                return true:
