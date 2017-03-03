@@ -67,7 +67,7 @@ cd ${TMP_DIR}
 ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
 
 for f in ./DB/*.db; do
-  qsub  "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  qsub "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 exit 0
