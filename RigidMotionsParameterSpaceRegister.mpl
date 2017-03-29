@@ -45,7 +45,8 @@ module ComputationRegister()
   local version;
 
 # Comments:
-#  We should not use Database[SQLite]:-Bind() since it is buggy -- values are lost.
+#  We should use Database[SQLite]:-Bind() with care. Values passed should be given as local or
+#  global but never as values returned from other procedures.
 
 # Method: ModuleCopy
 #   Standard constructor / copy constructor
@@ -170,14 +171,14 @@ module ComputationRegister()
 #   into the register.
 #
   export InsertQuadric::static := proc(self::ComputationRegister, id::integer, quadric::polynom)
-    local stmt;
+    local stmt, poly := sprintf("%a", quadric);
     if self:-version > 0 then
       error "Adding new quadrics is blocked! Re-run computations with a new database.";
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                  "cacheDB.Quadric(ID, polynom) VALUES (?, ?);");
     Database[SQLite]:-Bind(stmt, 1, id);
-    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", quadric));
+    Database[SQLite]:-Bind(stmt, 2, poly);
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     Database[SQLite]:-Finalize(stmt);
   end proc;
@@ -197,18 +198,21 @@ module ComputationRegister()
 #
   export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                      event::EventType)
-    local x::integer, num, quadrics, stmt;
+    local x::integer, num, quadrics, stmt, poly, interA, interB;
     if self:-version > 0 then
       error "Adding new events is blocked! Re-run computations with a new database.";
     fi;
     num := GetRealAlgebraicNumber(event); quadrics := GetQuadrics(event);
+    poly := sprintf("%a", GetPolynomial(num));
+    interA := sprintf("%a", GetInterval(num)[1]);
+    interB := sprintf("%a", GetInterval(num)[2]);
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
             "cacheDB.RealAlgebraicNumber(ID, polynom, IntervalL, IntervalR) " ||
                                              "VALUES (?, ?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, idNum);
-    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", GetPolynomial(num)));
-    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", GetInterval(num)[1]));
-    Database[SQLite]:-Bind(stmt, 4, sprintf("%a", GetInterval(num)[2]));
+    Database[SQLite]:-Bind(stmt, 2, poly);
+    Database[SQLite]:-Bind(stmt, 3, interA);
+    Database[SQLite]:-Bind(stmt, 4, interB);
 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     Database[SQLite]:-Finalize(stmt);
@@ -280,18 +284,20 @@ module ComputationRegister()
 #                                    point
 #
   export InsertNMM::static := proc(self::ComputationRegister, ID::integer, NMM::list, T::list)
-    local stmt;
+    local stmt, NMMString, transX, transY, transZ;
     if self:-version < 1 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
                                              "cacheDB.NMM(SP_ID, NMM, T1, T2, T3) VALUES (?, ?, " ||
                                              "?, ?, ?);");
+    NMMString := sprintf("%a", NMM); transX := sprintf("%a", T[1]); transY := sprintf("%a", T[2]);
+    transZ := sprintf("%a", T[3]);
     Database[SQLite]:-Bind(stmt, 1, ID);
-    Database[SQLite]:-Bind(stmt, 2, sprintf("%a", NMM));
-    Database[SQLite]:-Bind(stmt, 3, sprintf("%a", T[1]));
-    Database[SQLite]:-Bind(stmt, 4, sprintf("%a", T[2]));
-    Database[SQLite]:-Bind(stmt, 5, sprintf("%a", T[3]));
+    Database[SQLite]:-Bind(stmt, 2, NMMString);
+    Database[SQLite]:-Bind(stmt, 3, transX);
+    Database[SQLite]:-Bind(stmt, 4, transY);
+    Database[SQLite]:-Bind(stmt, 5, transZ);
 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     Database[SQLite]:-Finalize(stmt);
@@ -405,13 +411,16 @@ module ComputationRegister()
 #
 #
   export InsertSamplePoint::static := proc(self::ComputationRegister, samp::list)
-    local stmt, vals;
+    local stmt, a, b, c;
     if self:-version > 0 then
       error "Adding new computed sample points is blocked! Re-run computations with a new database.";
     fi;
-    vals:= sprintf("'%a', '%a', '%a'", op(samp));
+    a := sprintf("%a", samp[1]); b := sprintf("%a", samp[2]); c := sprintf("%a", samp[3]);
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO cacheDB.SamplePoint " ||
-                                                     "(A, B, C) VALUES (" || vals || " );");
+                                                       "(A, B, C) VALUES (?, ?, ?);");
+    Database[SQLite]:-Bind(stmt, 1, a);
+    Database[SQLite]:-Bind(stmt, 2, b);
+    Database[SQLite]:-Bind(stmt, 3, c);
 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     Database[SQLite]:-Finalize(stmt);
