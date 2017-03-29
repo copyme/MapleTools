@@ -322,10 +322,10 @@ LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                                     numnodes=nodes); 
+                                                  numnodes=nodes, allexternal=false); 
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
                imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                                     numnodes=nodes); 
+                                                  numnodes=nodes, allexternal=false); 
 end proc:
 
 end module:
