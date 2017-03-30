@@ -66,7 +66,7 @@ Submitting jobs to a cluster
 ================
 
 The directory ```scripts/cluster``` contains several scripts meant to easy the process of running
-parts of the code in a cluster. The only part of the code which does not work in the cluster is
+parts of the code in a cluster. The only part of the code which does not work in a cluster is
 ```LaunchComputeEvents```.
 
 The main script ```Build.sh``` creates a self-executable bash script which contains all the code and
@@ -80,6 +80,7 @@ The input parameters are:
 - -n -- number of nodes in the cluster
 - -o -- where to write the output self-executable script
 - -m -- a maple script which contains a set of instructions to be run on each node in the cluster
+  (see an exemple of such a file: ```scripts/cluster/MapleScriptExample.mpl```)
 
 To submit computations to the cluster you have to execute the self-executable script obtained from
 ```scripts/cluster/Build.sh``` and provide as an argument a path to a folder accessible via the same
