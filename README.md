@@ -67,7 +67,9 @@ Submitting jobs to a cluster
 
 The directory ```scripts/cluster``` contains several scripts meant to easy the process of running
 parts of the code in a cluster. The only part of the code which does not work in a cluster is
-```LaunchComputeEvents```.
+```LaunchComputeEvents```. The only supported job subbmitting command is
+[qsub](https://en.wikipedia.org/wiki/Qsub). If any additional arguments have to be provided to
+```qsub``` then it is necessery to edit the file ```scripts/cluster/Exec.sh```.
 
 The main script ```Build.sh``` creates a self-executable bash script which contains all the code and
 input data needed to run computation in a cluster. To build a self-executable script run:
