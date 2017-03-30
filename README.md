@@ -87,7 +87,7 @@ The input parameters are:
 To submit computations to the cluster you have to execute the self-executable script obtained from
 ```scripts/cluster/Build.sh``` and provide as an argument a path to a folder accessible via the same
 path by each node in the cluster. The self-executable script will create a folder
-```<SHARED_DIR>/selfextract.XXXXXX/DB```, where XXXXXX stands for some random string, where the
+```<SHARED_DIR>/selfextract.XXXXXX/DB```, where XXXXXX stands for some random string, the
 output is stored in a number (equal to the number of nodes provided to ```Build.sh``` via -n
 parameter) of database files. For the moment the files have to merged by hand but a script to
 facilitated this operation is planned.
