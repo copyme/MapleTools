@@ -68,8 +68,7 @@ Submitting jobs to a cluster
 The directory ```scripts/cluster``` contains several scripts meant to easy the process of running
 parts of the code in a cluster. The only part of the code which does not work in a cluster is
 ```LaunchComputeEvents```. The only supported job subbmitting command is
-[qsub](https://en.wikipedia.org/wiki/Qsub). If any additional arguments have to be provided to
-```qsub``` then it is necessery to edit the file ```scripts/cluster/Exec.sh```.
+[qsub](https://en.wikipedia.org/wiki/Qsub).
 
 The main script ```Build.sh``` creates a self-executable bash script which contains all the code and
 input data needed to run computation in a cluster. To build a self-executable script run:
@@ -86,11 +85,11 @@ The input parameters are:
 
 To submit computations to the cluster you have to execute the self-executable script obtained from
 ```scripts/cluster/Build.sh``` and provide as an argument a path to a folder accessible via the same
-path by each node in the cluster. The self-executable script will create a folder
-```<SHARED_DIR>/selfextract.XXXXXX/DB```, where XXXXXX stands for some random string, the
-output is stored in a number (equal to the number of nodes provided to ```Build.sh``` via -n
-parameter) of database files. For the moment the files have to merged by hand but a script to
-facilitated this operation is planned.
+path by each node in the cluster. Moreover, any argument given after ther path will be transfered 
+to ```qsub```. The self-executable script will create a folder ```<SHARED_DIR>/selfextract.XXXXXX/DB```,
+where XXXXXX stands for some random string, the output is stored in a number (equal to the number of 
+nodes provided to ```Build.sh``` via -n parameter) of database files. For the moment the files have to
+merged by hand but a script to facilitated this operation is planned.
 
 
 Additional information
