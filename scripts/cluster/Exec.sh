@@ -67,8 +67,9 @@ cd ${TMP_DIR}
 # Install Maple scripts
 ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
 
+shift
 for f in ./DB/*.db; do
-  qsub ${2} "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+  qsub "${@}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 exit 0
