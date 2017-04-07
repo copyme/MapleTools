@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# The script inspired by http://www.linuxjournal.com/node/1005818
+# The script is inspired by http://www.linuxjournal.com/node/1005818
 
 # Copyright (c) 2017, Kacper Pluta <kacper.pluta@esiee.fr>
 # All rights reserved.
