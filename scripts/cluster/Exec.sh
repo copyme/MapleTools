@@ -30,28 +30,71 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Get rid of national specifications like "," instead of "." for numbers.
+export LC_ALL=C
+
 # This variable is set by the Build.sh script.
-SHARED_DIR=${1}
 INSTALL_SCRIPT="Install.sh"
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
 
-
-if [ -z "${SHARED_DIR}" ]; then
-    echo "You have to provide a path to the shared directory! Please, type: ${0}
-    </path/to/shared/directory> <optional arguments to qsub>"
+function Init()
+{
+  if ! hash qsub 2>/dev/null; then
+    echo "This script relay on Sun Engine Grid tools! You need to install them."
     exit 1
-fi
+  fi 
+}
 
-if [ ! -e "${SHARED_DIR}" ]; then
+# We check if argument is valid and call a specific function related to it.
+function Parse_Arguments()
+{
+  for i in ${@}; do
+  case ${i} in
+    -d=*|--dir=*)
+      SHARED_DIR="${i#*=}"
+      shift # past argument
+    ;;
+    -b=*|--begin=*)
+      RANGE_BEGIN="${i#*=}"
+      shift # past argument
+    ;;
+    -e=*|--end=*)
+      RANGE_END="${i#*=}"
+      shift # past argument
+    ;;
+    *)
+    ;;
+  esac
+  done
+  if [ -z "${SHARED_DIR}" ]; then
+    echo "You have to provide a path to the shared directory! Please, type: ${0} -d=</path/to/shared/directory> -b=<an optional begin of the range> -e=<an optional end of the range> <optional arguments to qsub>"
+    exit 1
+  fi
+  if [ ! -e "${SHARED_DIR}" ]; then
     echo "Provided shared directory: \"${SHARED_DIR}\" does not exist!"
     exit 1
-fi
+  fi
+  if [ -z "${RANGE_BEGIN}" ]; then
+    RANGE_BEGIN=0
+  fi
+  if [ -z "${RANGE_END}" ]; then
+    RANGE_END=`ls ${TMP_DIR}/DB/*.db`
+  fi
+  QSUB_ARGS=${@}
+}
 
-if ! hash qsub 2>/dev/null; then
-  echo "This script relay on Sun Engine Grid tools! You need to install them."
-  exit 1
-fi
+# Check if some input parameters were passed.
+case ${@} in
+  (*[![:blank:]]*)
+     Init
+     Parse_Arguments ${@}
+     ;;
+  (*)
+    echo "Please, type: ${0} -d=</path/to/shared/directory> -b=<an optional begin of the range> -e=<an optional end of the range> <optional arguments to qsub>"
+    exit
+    ;;
+esac
 
 export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
 
@@ -67,11 +110,11 @@ cd ${TMP_DIR}
 # Install Maple scripts
 ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
 
-shift
-for f in ./DB/*.db; do
-  qsub "${@}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
+for i in `seq ${RANGE_BEGIN} ${RANGE_END}`; do
+  qsub "${QSUB_ARGS}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
+# Prevent calling the rest of the script
 exit 0
 
 # Do not add anything below the next line!!!!
