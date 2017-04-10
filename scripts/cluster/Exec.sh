@@ -30,10 +30,23 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Get rid of national specifications like "," instead of "." for numbers.
+export LC_ALL=C
+
 # This variable is set by the Build.sh script.
 INSTALL_SCRIPT="Install.sh"
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
+
+function Init()
+{
+  if ! hash qsub 2>/dev/null; then
+    echo "This script relay on Sun Engine Grid tools! You need to install them."
+    exit 1
+  fi
+
+  export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
+}
 
 # We check if argument is valid and call a specific function related to it.
 function Parse_Arguments()
@@ -75,13 +88,6 @@ function Parse_Arguments()
 # The main function which submits jobs to the cluster
 function Run_Jobs()
 {
-  if ! hash qsub 2>/dev/null; then
-    echo "This script relay on Sun Engine Grid tools! You need to install them."
-    exit 1
-  fi
-
-  export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
-
   ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
 
   tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
@@ -103,6 +109,7 @@ function Run_Jobs()
 # Check if some input parameters were passed.
 case ${@} in
   (*[![:blank:]]*)
+     Init
      Parse_Arguments ${@}
      Run_Jobs ${@}
      ;;
