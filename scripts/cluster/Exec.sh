@@ -31,48 +31,87 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # This variable is set by the Build.sh script.
-SHARED_DIR=${1}
 INSTALL_SCRIPT="Install.sh"
 MAPLE_FILE=__REPLACE_MPL__
 NODE_RUNNER_SCRIPT="NodeRunner.sh"
 
-
-if [ -z "${SHARED_DIR}" ]; then
-    echo "You have to provide a path to the shared directory! Please, type: ${0}
-    </path/to/shared/directory> <optional arguments to qsub>"
+# We check if argument is valid and call a specific function related to it.
+function Parse_Arguments()
+{
+  for i in ${@}; do
+  case ${i} in
+    -d=*|--dir=*)
+      SHARED_DIR="${i#*=}"
+      shift # past argument
+    ;;
+    -b=*|--begin=*)
+      RANGE_BEGIN="${i#*=}"
+      shift # past argument
+    ;;
+    -e=*|--end=*)
+      RANGE_END="${i#*=}"
+      shift # past argument
+    ;;
+    *)
+    ;;
+  esac
+  done
+  if [ -z "${SHARED_DIR}" ]; then
+    echo "You have to provide a path to the shared directory! Please, type: ${0} -d=</path/to/shared/directory> -b=<an optional begin of the range> -e=<an optional end of the range> <optional arguments to qsub>"
     exit 1
-fi
-
-if [ ! -e "${SHARED_DIR}" ]; then
+  fi
+  if [ ! -e "${SHARED_DIR}" ]; then
     echo "Provided shared directory: \"${SHARED_DIR}\" does not exist!"
     exit 1
-fi
+  fi
+  if [ -z "${RANGE_BEGIN}" ]; then
+    RANGE_BEGIN=0
+  fi
+  if [ -z "${RANGE_END}" ]; then
+    RANGE_END=`ls ${TMP_DIR}/DB/*.db`
+  fi
+}
 
-if ! hash qsub 2>/dev/null; then
-  echo "This script relay on Sun Engine Grid tools! You need to install them."
-  exit 1
-fi
+# The main function which submits jobs to the cluster
+function Run_Jobs()
+{
+  if ! hash qsub 2>/dev/null; then
+    echo "This script relay on Sun Engine Grid tools! You need to install them."
+    exit 1
+  fi
 
-export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
+  export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
 
-ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
+  ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
 
-tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
+  tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
 
-cd ${TMP_DIR}
+  cd ${TMP_DIR}
 
-# Uninstall scripts -- if installed before
-./${INSTALL_SCRIPT} -u
+  # Uninstall scripts -- if installed before
+  ./${INSTALL_SCRIPT} -u
 
-# Install Maple scripts
-./${INSTALL_SCRIPT} -d="${TMP_DIR}"
+  # Install Maple scripts
+  ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
 
-shift
-for f in ./DB/*.db; do
-  qsub "${@}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/$( basename ${f} )" "${TMP_DIR}/${MAPLE_FILE}"
-done
+  for i in {${RANGE_BEGIN}..${RANGE_END}}; do
+    qsub "${@}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
+  done
+}
 
-exit 0
+
+# Check if some input parameters were passed.
+case ${@} in
+  (*[![:blank:]]*)
+     Parse_Arguments ${@}
+     Run_Jobs ${@}
+     ;;
+  (*)
+    echo "Please, type: ${0} -d=</path/to/shared/directory> -b=<an optional begin of the range> -e=<an optional end of the range> <optional arguments to qsub>"
+    exit
+    ;;
+esac
+
 
 # Do not add anything below the next line!!!!
 __ARCHIVE_BELOW__
