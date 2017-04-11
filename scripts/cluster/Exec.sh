@@ -111,7 +111,8 @@ cd ${TMP_DIR}
 ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
 
 for i in `seq ${RANGE_BEGIN} ${RANGE_END}`; do
-  qsub "${QSUB_ARGS}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
+  echo "qsub called with the following arguments: ${QSUB_ARGS} ${TMP_DIR}/${NODE_RUNNER_SCRIPT} ${TMP_DIR}/DB/${i}.db ${TMP_DIR}/${MAPLE_FILE}"
+  qsub ${QSUB_ARGS} "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
 done
 
 # Prevent calling the rest of the script
