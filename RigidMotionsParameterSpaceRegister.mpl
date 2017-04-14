@@ -146,6 +146,11 @@ module ComputationRegister()
     Database[SQLite]:-Close(self:-connection);
   end proc;
 
+  
+  export DatabaseVersion::static := proc( self::ComputationRegister )
+    return self:-version;
+  end proc;
+
 
 # Method: ModulePrint
 #   Standard printout of an object of type ComputationRegister.
@@ -542,8 +547,9 @@ end proc;
      if self:-version < 1 then
       error "This version of FetchSamplePoints requires a database in version 1.";
     fi;
-    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, A, B, C FROM SamplePoint " ||
-            "WHERE ID BETWEEN ? AND ?;"); 
+    stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, A, B, C FROM SamplePoint AS S " ||
+            "WHERE S.ID BETWEEN ? AND ? AND NOT EXISTS( SELECT 1 FROM SamplePointSignature AS SS " ||
+                                                                         "WHERE S.ID = SS.SP_ID);"); 
     Database[SQLite]:-Bind(stmt, 1, first);
     Database[SQLite]:-Bind(stmt, 2, last);
 
