@@ -89,7 +89,7 @@ To submit computations to the cluster you have to execute the self-executable sc
 
 - -d="<path/to/shared/dit>" -- path to a shared directoy accesible in the same way by all the nodes
 - -b="integer" -- an **optional** integer argument which stands for a beginning of a range of the input databases to be proceed.
-- -e="" -- an **optional** integer argument which stands for an end of a range of the input databases to be proceed.
+- -e="integer" -- an **optional** integer argument which stands for an end of a range of the input databases to be proceed.
 
 Moreover, any argument given after the above arguments will be transfered to ```qsub```. The
 self-executable script will create a folder ```<SHARED_DIR>/selfextract.XXXXXX/DB```, where XXXXXX
