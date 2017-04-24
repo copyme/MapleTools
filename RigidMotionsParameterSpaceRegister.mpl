@@ -79,11 +79,12 @@ module ComputationRegister()
       self:-version := proto:-version;
     else
       fileStatus:=FileTools:-Exists(dbPath);
+      # wait until DB is not busy
       while openStatus do
         try
           openStatus := false;
           self:-connection := Database[SQLite]:-Open(dbPath);
-        catch "(in %1) database is locked":
+        catch "database is locked":
           openStatus := true;
         end try;
       od;
@@ -131,7 +132,8 @@ module ComputationRegister()
         "NOT NULL check(length(C) > 0));");
       elif self:-version = 1 then
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.SamplePointSignature " ||
-        "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE check(length(Signature) > 0));");       
+        "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE check(length(Signature) > 0));");
+      elif self:-version = 2 then
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.NMM (NMM TEXT NOT NULL " ||
         "UNIQUE check(length(NMM) > 0), SP_ID NOT NULL UNIQUE, T1 TEXT NOT NULL " ||
         "check(length(T1) > 0), T2 TEXT NOT NULL check(length(T2) > 0), T3 TEXT NOT NULL " ||
@@ -243,7 +245,7 @@ module ComputationRegister()
 #
   export InsertSignature::static := proc(self::ComputationRegister, id::integer, sig::string)
     local stmt;
-    if self:-version < 1 then
+    if self:-version <> 1 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
@@ -264,7 +266,7 @@ module ComputationRegister()
 #
   export SynchronizeSamplePointsSignatures::static := proc(self::ComputationRegister)
     local stmt;
-    if self:-version < 1 then
+    if self:-version <> 1 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO SamplePointSignature " || 
@@ -275,7 +277,23 @@ module ComputationRegister()
 
     #clean up cacheDB
     stmt := Database[SQLite]:-Execute(self:-connection,"DELETE FROM cacheDB.SamplePointSignature;");
-  end proc;
+end proc;
+
+
+# Method: CloseSignaturesAddition
+#   Used to mark that signatures were computed.
+#
+# Parameters:
+#   self::ComputationRegister      - an instance of ComputationRegister
+#
+  export CloseSignaturesAddition::static := proc(self::ComputationRegister)
+    if self:-version <> 1 then
+      return NULL;
+    fi;
+
+    Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 2;");
+    self:-version := 2;
+end proc;
 
 
 # Method: InsertNMM
@@ -290,7 +308,7 @@ module ComputationRegister()
 #
   export InsertNMM::static := proc(self::ComputationRegister, ID::integer, NMM::list, T::list)
     local stmt, NMMString, transX, transY, transZ;
-    if self:-version < 1 then
+    if self:-version < 2 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
@@ -318,7 +336,7 @@ module ComputationRegister()
 #
   export SynchronizeNMM::static := proc(self::ComputationRegister)
     local stmt;
-    if self:-version < 1 then
+    if self:-version < 2 then
       return NULL;
     fi;
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT INTO NMM (NMM, SP_ID, T1, T2, " ||
@@ -532,7 +550,7 @@ end proc;
   end proc;
 
 
-# Method: FetchSamplePoints
+# Method: FetchSamplePointsWithoutSignature
 #   Used to fetch a given number of sample points from the database.
 #
 # Parameters:
@@ -541,8 +559,11 @@ end proc;
 #                                    range of ids to be fetched
 #   last::integer                  - an id of a sample point which represent the end of the range of
 #                                    ids to be fetched
+# Comment:
+#   Only sample points without signatures are fetch.
 #
-  export FetchSamplePoints::static := proc(self::ComputationRegister, first::integer, last::integer)
+  export FetchSamplePointsWithoutSignature::static := proc(self::ComputationRegister, 
+                                                       first::integer, last::integer)
     local row, buffer:=Array([]), stmt;
      if self:-version < 1 then
       error "This version of FetchSamplePoints requires a database in version 1.";

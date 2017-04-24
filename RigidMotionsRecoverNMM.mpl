@@ -275,7 +275,7 @@ FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::
   if n > last then
     n := last - fromID;
   fi;
-  return FetchSamplePoints(db, fromID, n ); 
+  return FetchSamplePointsWithoutSignature(db, fromID, n ); 
 end proc;
 
 
@@ -285,13 +285,11 @@ end proc;
 #
  ParallelFindTopologicallyDistinctSamplePoints := proc() 
   local first::integer, last::integer;
-  local noTPoints;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
   local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
-  local db:= Object(ComputationRegister, dbPathGlobal), n;
-  local i::integer, buffer, samplePoint, sig::string;
+  local db, n, i::integer, buffer, samplePoint, sig, noTPoints;
+  db:= Object(ComputationRegister, dbPathGlobal);
   noTPoints := NumberOfSamplePoints(db);
-
   n := trunc(noTPoints / Grid:-NumNodes());
   first :=  Grid:-MyNode() * n + 1; last := (Grid:-MyNode() + 1) * n;
   if Grid:-MyNode() = Grid:-NumNodes() - 1 then
@@ -322,6 +320,9 @@ LaunchFindDistinctSamplePoints := proc(vars::list, nType::string, kRange::list, 
   Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints,
   imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], numnodes=nodes,
   allexternal=false); 
+  db:=Object(ComputationRegister, dbPath);
+  CloseSignaturesAddition(db);
+  Close(db);
 end proc:
 
 
