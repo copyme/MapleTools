@@ -722,5 +722,45 @@ end proc;
     Database[SQLite]:-Finalize(stmt);
     return num;
   end proc;
+  
+
+  export DropRedundantSamplePoints::static := proc(self::ComputationRegister)
+    local stmt;
+    if self:-version = 2 then
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE SamplePoints (A TEXT NOT NULL " || 
+      "CHECK (length(A) > 0), B TEXT NOT NULL CHECK (length(B) > 0), C TEXT NOT NULL CHECK " || 
+      "(length(C) > 0), ID INTEGER PRIMARY KEY);");
+
+      # Copy only topologically unique sample points
+      stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePoints SELECT A, B," ||
+      "C, S.ID FROM SamplePoint AS S, SamplePointSignature AS SSP WHERE S.ID = SSP.SP_ID;");
+      while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
+      Database[SQLite]:-Finalize(stmt);
+
+
+      Database[SQLite]:-Execute(self:-connection, "CREATE TABLE SamplePointSignatures (ID INTEGER "
+      || "PRIMARY KEY AUTOINCREMENT, SP_ID REFERENCES SamplePoints (ID) ON DELETE CASCADE ON " || 
+      "UPDATE CASCADE NOT NULL, Signature TEXT NOT NULL UNIQUE CHECK (length(Signature) > 0));");
+
+      # Copy data 
+      stmt := Database[SQLite]:-Prepare(self:-connection, "INSERT INTO SamplePointSignatures "|| 
+      "SELECT * FROM SamplePointSignature;");
+      while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
+      Database[SQLite]:-Finalize(stmt);
+
+      Database[SQLite]:-Execute(self:-connection, "DROP TABLE SamplePointSignature; " ||
+      "DROP TABLE SamplePoint; VACUUM;");
+
+     # Recover old names
+     Database[SQLite]:-Execute(self:-connection, "ALTER TABLE SamplePoints RENAME TO " || 
+     "SamplePoint;");
+
+     Database[SQLite]:-Execute(self:-connection, "ALTER TABLE SamplePointSignatures RENAME TO " || 
+     "SamplePointSignature;");
+
+      Database[SQLite]:-Execute(self:-connection, "PRAGMA user_version = 3;");
+      self:-version := 3;
+    fi;
+  end proc;
 end module;
 

@@ -340,7 +340,9 @@ end proc:
 #   List of unique neighborhood motion maps
 LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
                                                         nodes:=kernelopts(numcpus)) 
-
+  local db:=Object(ComputationRegister, dbPath);
+  DropRedundantSamplePoints(db);
+  Close(db);
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
   
   Grid:-Setup("local"); 
