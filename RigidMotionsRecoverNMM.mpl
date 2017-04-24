@@ -61,9 +61,10 @@ RigidMotionsRecoverNMM := module()
   (*Controls how many sample points should be fetch from the database in one quary.*)
   export BUFFER_SIZE := 1000;
 
-  export ParallelCalculateNMM, Get3DNMM, RecoverTranslationSamplePoints, GetOrderedCriticalPlanes, 
-         CriticalPlanes, CalculateNMM, LaunchComputeNMM, FetchSamplePointsFromDB,
-         FetchTopologicallyDistinctSamplePointsFromDB, ParallelFindTopologicallyDistinctSamplePoints;
+  export ParallelCalculateNMM, Get3DNMM, RecoverTranslationSamplePoints, GetOrderedCriticalPlanes,
+  CriticalPlanes, CalculateNMM, LaunchFindDistinctSamplePoints,  LaunchComputeNMM,
+  FetchSamplePointsFromDB, FetchTopologicallyDistinctSamplePointsFromDB,
+  ParallelFindTopologicallyDistinctSamplePoints;
 
 
 # Procedure: CriticalPlanes
@@ -233,13 +234,18 @@ end proc;
 #
 ParallelCalculateNMM := proc() 
   local db:= Object(ComputationRegister, dbPathGlobal), n;
+  local noTPoints;
   local first::integer, last::integer;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
   local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
   local i::integer, buffer, samplePoint, sig::string;
+  noTPoints := NumberOfTopologicallyDistinctSamplePoints(db);
 
-  n := trunc(NumberOfTopologicallyDistinctSamplePoints(db) / Grid:-NumNodes());
+  n := trunc(noTPoints / Grid:-NumNodes());
   first :=  Grid:-MyNode() * n + 1; last := (Grid:-MyNode() + 1) * n;
+  if Grid:-MyNode() = Grid:-NumNodes() - 1 then
+    last := noTPoints;
+  fi;
 
   for i from first by RigidMotionsRecoverNMM:-BUFFER_SIZE to last do
     buffer := RigidMotionsRecoverNMM:-FetchTopologicallyDistinctSamplePointsFromDB(db, i, last);
@@ -269,7 +275,7 @@ FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::
   if n > last then
     n := last - fromID;
   fi;
-  return FetchSamplePoints(db, fromID, n ); 
+  return FetchSamplePointsWithoutSignature(db, fromID, n ); 
 end proc;
 
 
@@ -281,11 +287,14 @@ end proc;
   local first::integer, last::integer;
   local R := CayleyTransform(varsGlobal), N := GetNeighborhood(nTypeGlobal); 
   local planes := RigidMotionsRecoverNMM:-CriticalPlanes(R, N, kRangeGlobal);
-  local db:= Object(ComputationRegister, dbPathGlobal), n;
-  local i::integer, buffer, samplePoint, sig::string;
-
-  n := trunc(NumberOfSamplePoints(db) / Grid:-NumNodes());
+  local db, n, i::integer, buffer, samplePoint, sig, noTPoints;
+  db:= Object(ComputationRegister, dbPathGlobal);
+  noTPoints := NumberOfSamplePoints(db);
+  n := trunc(noTPoints / Grid:-NumNodes());
   first :=  Grid:-MyNode() * n + 1; last := (Grid:-MyNode() + 1) * n;
+  if Grid:-MyNode() = Grid:-NumNodes() - 1 then
+    last := noTPoints;
+  fi;
 
   for i from first by RigidMotionsRecoverNMM:-BUFFER_SIZE to last do
     buffer := RigidMotionsRecoverNMM:-FetchSamplePointsFromDB(db, i, last);
@@ -298,6 +307,23 @@ end proc;
   Close(db);
   Grid:-Barrier();
 end proc;
+
+
+LaunchFindDistinctSamplePoints := proc(vars::list, nType::string, kRange::list, dbPath::string, 
+                                                        nodes:=kernelopts(numcpus))
+  local db:=Object(ComputationRegister, dbPath);
+  PrepareSamplePoints(db);
+  Close(db);
+  nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
+  
+  Grid:-Setup("local"); 
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints,
+  imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], numnodes=nodes,
+  allexternal=false); 
+  db:=Object(ComputationRegister, dbPath);
+  CloseSignaturesAddition(db);
+  Close(db);
+end proc:
 
 
 # Procedure: LaunchOnGridGetNMM
@@ -315,17 +341,11 @@ end proc;
 LaunchComputeNMM := proc(vars::list, nType::string, kRange::list, dbPath::string, 
                                                         nodes:=kernelopts(numcpus)) 
 
-  local db:=Object(ComputationRegister, dbPath);
-  PrepareSamplePoints(db);
-  Close(db);
-  Grid:-Setup("local"); 
   nTypeGlobal := nType; kRangeGlobal := kRange; dbPathGlobal := dbPath; varsGlobal := vars;
-  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelFindTopologicallyDistinctSamplePoints, 
-               imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                  numnodes=nodes, allexternal=false); 
-  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, 
-               imports=['varsGlobal', 'nTypeGlobal', 'kRangeGlobal', 'dbPathGlobal'], 
-                                                  numnodes=nodes, allexternal=false); 
+  
+  Grid:-Setup("local"); 
+  Grid:-Launch(RigidMotionsRecoverNMM:-ParallelCalculateNMM, imports=['varsGlobal', 'nTypeGlobal',
+  'kRangeGlobal', 'dbPathGlobal'], numnodes=nodes, allexternal=false); 
 end proc:
 
 end module:

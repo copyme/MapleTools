@@ -43,9 +43,7 @@ function Init()
   if ! hash qsub 2>/dev/null; then
     echo "This script relay on Sun Engine Grid tools! You need to install them."
     exit 1
-  fi
-
-  export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
+  fi 
 }
 
 # We check if argument is valid and call a specific function related to it.
@@ -83,35 +81,14 @@ function Parse_Arguments()
   if [ -z "${RANGE_END}" ]; then
     RANGE_END=`ls ${TMP_DIR}/DB/*.db`
   fi
+  QSUB_ARGS=${@}
 }
-
-# The main function which submits jobs to the cluster
-function Run_Jobs()
-{
-  ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
-
-  tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
-
-  cd ${TMP_DIR}
-
-  # Uninstall scripts -- if installed before
-  ./${INSTALL_SCRIPT} -u
-
-  # Install Maple scripts
-  ./${INSTALL_SCRIPT} -d="${TMP_DIR}"
-
-  for i in {${RANGE_BEGIN}..${RANGE_END}}; do
-    qsub "${@}" "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
-  done
-}
-
 
 # Check if some input parameters were passed.
 case ${@} in
   (*[![:blank:]]*)
      Init
      Parse_Arguments ${@}
-     Run_Jobs ${@}
      ;;
   (*)
     echo "Please, type: ${0} -d=</path/to/shared/directory> -b=<an optional begin of the range> -e=<an optional end of the range> <optional arguments to qsub>"
@@ -119,6 +96,27 @@ case ${@} in
     ;;
 esac
 
+export TMP_DIR=`mktemp -d ${SHARED_DIR}/selfextract.XXXXXX`
+
+ARCHIVE=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' "${0}"`
+
+tail -n+"${ARCHIVE}" "${0}" | tar xzv -C "${TMP_DIR}"
+
+cd ${TMP_DIR}
+
+# Uninstall scripts -- if installed before
+./${INSTALL_SCRIPT} -u
+
+# Install Maple scripts
+./${INSTALL_SCRIPT} -d="${TMP_DIR}"
+
+for i in `seq ${RANGE_BEGIN} ${RANGE_END}`; do
+  echo "qsub called with the following arguments: ${QSUB_ARGS} ${TMP_DIR}/${NODE_RUNNER_SCRIPT} ${TMP_DIR}/DB/${i}.db ${TMP_DIR}/${MAPLE_FILE}"
+  qsub ${QSUB_ARGS} "${TMP_DIR}/${NODE_RUNNER_SCRIPT}" "${TMP_DIR}/DB/${i}.db" "${TMP_DIR}/${MAPLE_FILE}"
+done
+
+# Prevent calling the rest of the script
+exit 0
 
 # Do not add anything below the next line!!!!
 __ARCHIVE_BELOW__

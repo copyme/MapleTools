@@ -59,6 +59,7 @@ To compute neighborhood motion maps (for documentation of the parameters see the
 source file):
 ```
 with(RigidMotionsRecoverNMM);
+LaunchFindDistinctSamplePoints([a,b,c], "N1", [-1,0,1], "N1.db");
 LaunchComputeNMM([a,b,c], "N1", [-1,0,1], "N1.db");
 ```
 
@@ -84,11 +85,16 @@ The input parameters are:
   (see an exemple of such a file: ```scripts/cluster/MapleScriptExample.mpl```)
 
 To submit computations to the cluster you have to execute the self-executable script obtained from
-```scripts/cluster/Build.sh``` and provide as an argument a path to a folder accessible via the same
-path by each node in the cluster. Moreover, any argument given after ther path will be transfered 
-to ```qsub```. The self-executable script will create a folder ```<SHARED_DIR>/selfextract.XXXXXX/DB```,
-where XXXXXX stands for some random string, the output is stored in a number (equal to the number of 
-nodes provided to ```Build.sh``` via -n parameter) of database files. For the moment the files have to
+```scripts/cluster/Build.sh``` and provide as arguments
+
+- -d="<path/to/shared/dit>" -- path to a shared directoy accesible in the same way by all the nodes
+- -b="integer" -- an **optional** integer argument which stands for a beginning of a range of the input databases to be proceed.
+- -e="integer" -- an **optional** integer argument which stands for an end of a range of the input databases to be proceed.
+
+Moreover, any argument given after the above arguments will be transfered to ```qsub```. The
+self-executable script will create a folder ```<SHARED_DIR>/selfextract.XXXXXX/DB```, where XXXXXX
+stands for some random string, the output is stored in a number (equal to the number of nodes
+provided to ```Build.sh``` via -n parameter) of database files. For the moment the files have to
 merged by hand but a script to facilitated this operation is planned.
 
 
