@@ -135,7 +135,7 @@ module ComputationRegister()
         "(SP_ID NOT NULL, Signature TEXT NOT NULL UNIQUE check(length(Signature) > 0));");
       elif self:-version >= 2 then
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.NMM (NMM TEXT NOT NULL " ||
-        "UNIQUE check(length(NMM) > 0), SP_ID NOT NULL UNIQUE, T1 TEXT NOT NULL " ||
+        "UNIQUE check(length(NMM) > 0), SP_ID NOT NULL, T1 TEXT NOT NULL " ||
         "check(length(T1) > 0), T2 TEXT NOT NULL check(length(T2) > 0), T3 TEXT NOT NULL " ||
         "check(length(T3) > 0));");
       fi;
