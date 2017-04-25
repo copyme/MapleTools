@@ -3,7 +3,7 @@
 # Description:
 #  This file contains code written by external developers -- users of mapleprimes.com
 # Author:
-#  Carl Love, Alec, Mihailovs
+#  Alec, Mihailovs
 # 
 #
 # Date:
