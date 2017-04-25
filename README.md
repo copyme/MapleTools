@@ -52,7 +52,7 @@ LaunchComputeEvents([a,b,c], "N1.db", "N1", [-1, 0, 1]);
 To run or resume computations (for documentation of the parameters see the source file):
 ```
 with(RigidMotionsParameterSpaceDecompostion);
-LaunchComputeSamplePoints([a,b,c], "N1.db", "N1", [-1, 0, 1]);
+LaunchComputeSamplePoints([a,b,c], "N1.db", "N1");
 ```
 
 To compute neighborhood motion maps (for documentation of the parameters see the
