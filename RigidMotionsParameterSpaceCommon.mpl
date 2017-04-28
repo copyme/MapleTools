@@ -89,7 +89,7 @@ end proc:
 #   Compute a neighborhood
 #
 # Parameters:
-#   nType      - size of neighborhood i.e. N1, N2, N3, N1_2D. 
+#   nType      - size of neighborhood i.e. N1, N2, N3. 
 #
 # Output:
 #   List of vectors
