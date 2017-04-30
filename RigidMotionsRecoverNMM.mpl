@@ -223,7 +223,7 @@ FetchTopologicallyDistinctSamplePointsFromDB := proc(db::ComputationRegister, fr
                                                                                 last::integer)
   local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE - 1;
   if n > last then
-    n := last - fromID;
+    n := last;
   fi;
   return FetchTopologicallyDistinctSamplePoints(db, fromID, n); 
 end proc;
@@ -273,7 +273,7 @@ end proc:
 FetchSamplePointsFromDB := proc(db::ComputationRegister, fromID::integer, last::integer)
   local n := fromID + RigidMotionsRecoverNMM:-BUFFER_SIZE - 1;
   if n > last then
-    n := last - fromID;
+    n := last;
   fi;
   return FetchSamplePointsWithoutSignature(db, fromID, n ); 
 end proc;
