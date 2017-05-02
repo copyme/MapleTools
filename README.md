@@ -102,8 +102,8 @@ Additional information
 ================
 
 The computations are memory and time expensive. The implementation uses the Maple Grid framework to
-distribute (locally) the computation on a given number of nodes. While, the problem for 6-neighbor can
-be solved on a desktop machine in a relatively short time, computations for bigger image patch can
+distribute (locally) the computation on a given number of nodes. While, the problem for 6-neighborhood can
+be solved on a desktop machine in a relatively short time, computations for bigger image patchs can
 take weeks even for a machine with dozens of cores and hundreds of gigabytes of memory. Note that,
 if the FGb library is installed then computations are relatively slower but less events are
 generated.
