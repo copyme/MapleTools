@@ -108,3 +108,6 @@ take weeks even for a machine with dozens of cores and hundreds of gigabytes of 
 if the FGb library is installed then computations are relatively slower but less events are
 generated.
 
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.573013.svg)](https://doi.org/10.5281/zenodo.573013)
+
