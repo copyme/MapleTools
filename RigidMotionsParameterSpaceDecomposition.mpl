@@ -212,7 +212,7 @@ IsAsymptoticIntersection := proc( p::polynom, q::polynom, vars::list )
   Pc := PolynomialIdeals:-IdealInfo:-Generators(Pc)[1];
   Cb := lcoeff(Pb, vars[2]);
   Cc := lcoeff(Pc, vars[3]);
-  return gcd(Cb,Cc);
+  return lcm(Cb,Cc);
 end proc:
 
 
