@@ -140,7 +140,8 @@ end proc;
 #
 # Parameters:
 #   S          - a set of polynomials in at least two variables
-#   vars       - variables to be eliminated
+#   vars       - list of all the variables where the output univariate polynomial is represented in
+#                the first one -- the first element of the list
 #
 # Output:
 #   Univariate polynomial obtained from S in the first variable.
@@ -235,12 +236,13 @@ end proc;
 #   Generates events from a univariate polynomial (see EventType)
 #
 # Parameters:
-#    x::polynom     - a univariate polynomial
-#    quads::        - a list of quadrics
+#    x::polynom           - a univariate polynomial
+#    quads::              - a list of quadrics
+#    eventType::string    - Type of events: A, B, C, AA, AB
 #
 # Output:
 #    An Array of events generated from a given univariate polynomial.
-GenerateEvents := proc(x::polynom, quads::list)
+GenerateEvents := proc(x::polynom, quads::list, eventType::set)
   uses ArrayTools;
   local events := Array([]), factored, rootsF, sqrFree, rf;
   if nops(indets(x)) = 1 then
@@ -248,7 +250,8 @@ GenerateEvents := proc(x::polynom, quads::list)
     for sqrFree in factored do
       rootsF := RootFinding:-Isolate(sqrFree, output='interval');
       for rf in rootsF do
-        Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], op(rf)[2][2]), quads));
+        Append(events, EventType(RealAlgebraicNumber(sqrFree, op(rf)[2][1], op(rf)[2][2]), quads,
+        eventType));
       od;
     od;
   fi;
@@ -295,19 +298,21 @@ end proc;
 # Output:
 #    An Array of EventType.
 ReduceEvents := proc(L::Array) 
-  local R, k, j, last, x; 
+  local R, k, j, last, x, quadrics := [], eventTypes := {};
   R := Array([]); k := 0; last := 1; 
   for j from 2 to upperbound(L) do 
     if Compare(L[j-1], L[j], _rest) <> 0 then 
       k := k+1; 
-      R(k) := EventType(GetRealAlgebraicNumber(L[last]), 
-              ListTools:-MakeUnique([seq(op(GetQuadrics(x)) ,x=L[last .. j-1])]));
-      last := j
+      quadrics := ListTools:-MakeUnique([seq(op(GetQuadrics(x)), x=L[last .. j-1])]);
+      eventTypes := {seq(op(GetEventTypes(x)), x=L[last .. j-1])};
+      R(k) := EventType(GetRealAlgebraicNumber(L[last]), quadrics, eventTypes);
+      last := j;
     end if;
   end do;
   if last <> j then
-    ArrayTools:-Append(R, EventType(GetRealAlgebraicNumber(L[last]),  
-    ListTools:-MakeUnique([seq(op(GetQuadrics(x)) ,x=L[last .. ()])])))
+    quadrics := ListTools:-MakeUnique([seq(op(GetQuadrics(x)), x=L[last .. ()])]);
+    eventTypes := {seq(op(GetEventTypes(x)), x=L[last .. ()])};
+    ArrayTools:-Append(R, EventType(GetRealAlgebraicNumber(L[last]), quadrics, eventTypes));
   fi;
   return R;
 end proc;
@@ -325,11 +330,11 @@ end proc;
 AdjustEvents := proc(events::Array, quadNum::integer, variables::list)
   local boundTmp, lastEvent;
   # assign all quadrics to the first even
-  events[1] := EventType(GetRealAlgebraicNumber(events[1]), [seq(1..quadNum)]);
+  events[1] := EventType(GetRealAlgebraicNumber(events[1]), [seq(1..quadNum)], {"A", "B", "C", "AA", "AB"});
   # add the last slice twice but shifted to calculate correctly last quadrics
   boundTmp:= GetInterval(GetRealAlgebraicNumber(events[-1]))[2]+1;
   lastEvent := RealAlgebraicNumber(denom(boundTmp)*variables[1]-numer(boundTmp), boundTmp, boundTmp);
-  ArrayTools:-Append(events, EventType(lastEvent, GetQuadrics(events[-1])), inplace=true)
+  ArrayTools:-Append(events, EventType(lastEvent, GetQuadrics(events[-1]), GetEventTypes(events[-1])), inplace=true)
 end proc;
 
 

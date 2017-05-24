@@ -100,7 +100,8 @@ module ComputationRegister()
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE RealAlgebraicNumber (ID " ||
         "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL check(length(polynom) > 0), " ||
         "IntervalL TEXT NOT NULL check(length(IntervalL) > 0), IntervalR " ||
-        "TEXT NOT NULL check(length(IntervalR) > 0));");
+        "TEXT NOT NULL check(length(IntervalR) > 0), eventsType TEXT NOT NULL " ||
+        "check(length(eventsType) > 0));");
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE Events (RANumID INTEGER " ||
         "REFERENCES RealAlgebraicNumber (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL, " ||
         "QuadID INTEGER REFERENCES Quadric (ID) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL);");
@@ -121,7 +122,8 @@ module ComputationRegister()
         Database[SQLite]:-Execute(self:-connection,"CREATE TABLE cacheDB.RealAlgebraicNumber (ID " ||
         "INTEGER PRIMARY KEY UNIQUE, polynom TEXT NOT NULL check(length(polynom) > 0), " ||
         "IntervalL TEXT NOT NULL check(length(IntervalL) > 0), IntervalR TEXT NOT NULL " ||
-        "check(length(IntervalR) > 0));");
+        "check(length(IntervalR) > 0), eventsType TEXT NOT NULL " ||
+        "check(length(eventsType) > 0));");
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Quadric (ID PRIMARY KEY " ||
         "NOT NULL UNIQUE, polynom TEXT NOT NULL UNIQUE check(length(polynom) > 0));");
         Database[SQLite]:-Execute(self:-connection, "CREATE TABLE cacheDB.Events (RANumID INTEGER " ||
@@ -205,7 +207,7 @@ module ComputationRegister()
 #
   export InsertEvent::static := proc(self::ComputationRegister, idNum::integer,
                                      event::EventType)
-    local x::integer, num, quadrics, stmt, poly, interA, interB;
+    local x::integer, num, quadrics, stmt, poly, interA, interB, eventTypes;
     if self:-version > 0 then
       error "Adding new events is blocked! Re-run computations with a new database.";
     fi;
@@ -213,13 +215,15 @@ module ComputationRegister()
     poly := sprintf("%a", GetPolynomial(num));
     interA := sprintf("%a", GetInterval(num)[1]);
     interB := sprintf("%a", GetInterval(num)[2]);
+    eventTypes := sprintf("%a", GetEventTypes(event));
     stmt := Database[SQLite]:-Prepare(self:-connection,"INSERT OR IGNORE INTO " ||
-            "cacheDB.RealAlgebraicNumber(ID, polynom, IntervalL, IntervalR) " ||
-                                             "VALUES (?, ?, ?, ?);");
+            "cacheDB.RealAlgebraicNumber(ID, polynom, IntervalL, IntervalR, eventsType) " ||
+                                             "VALUES (?, ?, ?, ?, ?);");
     Database[SQLite]:-Bind(stmt, 1, idNum);
     Database[SQLite]:-Bind(stmt, 2, poly);
     Database[SQLite]:-Bind(stmt, 3, interA);
     Database[SQLite]:-Bind(stmt, 4, interB);
+    Database[SQLite]:-Bind(stmt, 5, eventTypes);
 
     while Database[SQLite]:-Step(stmt) = Database[SQLite]:-RESULT_BUSY do; od;
     Database[SQLite]:-Finalize(stmt);
@@ -534,7 +538,7 @@ end proc;
   export FetchEvents::static := proc(self::ComputationRegister, first::integer, last::integer)
     local row, events:=Array([]);
     local stmt := Database[SQLite]:-Prepare(self:-connection, "SELECT ID, polynom, IntervalL, " ||
-    "IntervalR, group_concat(QuadID) FROM RealAlgebraicNumber JOIN EVENTS " ||
+    "IntervalR, group_concat(QuadID), eventsType FROM RealAlgebraicNumber JOIN EVENTS " ||
     "ON ID = RANUMID WHERE ID BETWEEN ? AND ? GROUP BY ID ORDER BY ID;"); 
     Database[SQLite]:-Bind(stmt, 1, first);
     Database[SQLite]:-Bind(stmt, 2, last);
@@ -543,7 +547,7 @@ end proc;
     while Database[SQLite]:-Step(stmt) <> Database[SQLite]:-RESULT_DONE do
       row := Database[SQLite]:-FetchRow(stmt);
       events(row[1]) := EventType(RealAlgebraicNumber(parse(row[2]), parse(row[3]), 
-                    parse(row[4])), [parse(row[5])]);
+                    parse(row[4])), [parse(row[5])], parse(row[6]));
     od;
     Database[SQLite]:-Finalize(stmt);
     return events;

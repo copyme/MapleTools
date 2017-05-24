@@ -42,7 +42,8 @@ EventType := module()
   local ranum::RealAlgebraicNumber;
   
   (*List of indices of associeted quadrics*)
-  local quadrics::list;
+  local quadrics::list := [];
+  local eventTypes::set := {};
 
 
 # Method: ModuleCopy
@@ -51,8 +52,9 @@ EventType := module()
 # Parameters:
 #   self::EventType                   - a new object to be constructed
 #   proto::EventType                  - a prototype object from which self is derived
-#   ranum::RealAlgebraicNumber    - a real algebraic number
-#   quadrics::rational            - a list of indices which corresponds to associated quadrics
+#   ranum::RealAlgebraicNumber        - a real algebraic number
+#   quadrics::rational                - a list of indices which corresponds to associated quadrics
+#   eventType::string                 - Types: A, B, C, AA (A_infinity), AB (B_infinity)
 #
 # Output:
 #   An object of type RealAlgebraicNumber.
@@ -64,13 +66,20 @@ EventType := module()
   export ModuleCopy::static := proc( self::EventType,
                                      proto::EventType,
                                      ranum::RealAlgebraicNumber,
-                                     quadrics::list, $ )
+                                     quadrics::list,
+                                     eventType::set, $ )
     if _passed = 2 then
       self:-ranum := proto:-ranum;
       self:-quadrics := proto:-quadrics;
+      self:-eventTypes := proto:-eventTypes;
     else
       self:-ranum := ranum;
       self:-quadrics := quadrics;
+      if andmap(member, eventType, {"A", "B", "C", "AA", "AB"}) then
+        self:-eventTypes := self:-eventTypes union eventType;
+      else
+        error "Wrong event type %1!", eventType; 
+      fi;
     fi;
   end proc;
 
@@ -82,7 +91,7 @@ EventType := module()
 #   self::EventType                  - an event
 #
   export ModulePrint::static := proc( self::EventType )
-   nprintf("(%a, %a)", self:-ranum, self:-quadrics); 
+   nprintf("(%a, %a, %a)", self:-ranum, self:-quadrics, self:-eventTypes); 
   end proc;
 
 
@@ -102,7 +111,7 @@ EventType := module()
 #
   export ModuleDeconstruct::static := proc( self::EventType )
     ('EventType')(('RealAlgebraicNumber')(GetPolynomial(self:-ranum), GetInterval(self:-ranum)[1],
-    GetInterval(self:-ranum)[2]), self:-quadrics)
+    GetInterval(self:-ranum)[2]), self:-quadrics, self:-eventTypes)
   end proc;
 
 # Method: GetRealAlgebraicNumber
@@ -128,6 +137,15 @@ EventType := module()
     return self:-quadrics;
   end proc;
 
+
+  export GetEventTypes::static := proc(self::EventType)
+    return self:-eventTypes;
+  end proc;
+
+
+  export HasEventType::static := proc(self::EventType, eventType::string)
+    return member(eventType, self:-eventTypes);
+  end proc;
 
 # Method: Compare
 #   A method used to compare two events.

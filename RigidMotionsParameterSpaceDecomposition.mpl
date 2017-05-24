@@ -92,8 +92,8 @@ end proc:
 #
 # Output:
 #   true if polynomial of degree 2 is non-positive and false otherwise
-IsMonotonic := proc( x::~polynom )
-  local homo, hessian, signmap, clean:
+IsMonotonic := proc( x::polynom )
+  local homo, hessian, signmap, clean, v;
   homo := Groebner:-Homogenize( x, v ):
   hessian := 1 / 2 * VectorCalculus:-Hessian( homo, [ op( indets( x ) ), v ] ):
   signmap := map( signum, LinearAlgebra:-Eigenvalues( hessian ) ):
@@ -239,7 +239,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
    local q := Q[i];
    sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
    univ := UnivariatePolynomial(sys, vars);
-   return SerializeEvents(GenerateEvents(univ, [i]));
+   return SerializeEvents(GenerateEvents(univ, [i], {"A"}));
   end proc:
   map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
                                              [Grid:-Seq(s(i, vars), i=1..nops(Q))]);
@@ -270,7 +270,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer, vars::list )
                                     VectorCalculus:-Gradient( Q[j], vars ) )[dir]:
     sys := { Q[i], Q[j], prod };
     univ := UnivariatePolynomial(sys, vars);
-    return SerializeEvents(GenerateEvents(univ, [i, j]));
+    return SerializeEvents(GenerateEvents(univ, [i, j], {"B"}));
   end proc:
   map[inplace](proc(x) ArrayTools:-Extend(result, x, inplace=true) end proc, 
                                    [Grid:-Seq(seq(s(i, j, vars), j=i+1..nops(Q)), i=1..nops(Q))]);
@@ -297,7 +297,7 @@ ComputeEventsCTypeGrid := proc( Q, vars::list )
     local univ, sys;
     sys := { Q[i], Q[j], Q[k] }:
     univ := UnivariatePolynomial(sys, vars);
-    return SerializeEvents(GenerateEvents(univ, [i, j, k]));
+    return SerializeEvents(GenerateEvents(univ, [i, j, k], {"C"}));
   end proc;
   map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq(seq(seq(s(i, j, k, vars), 
                                        k=j+1..nops(Q)),j=i+1..nops(Q)),i=1..nops(Q))]);
@@ -330,7 +330,7 @@ ComputeAsymptoticAAEvents:=proc(Q, vars::list)
         error "Irrational asymptotic case! Are you sure the input is a set of quadrics?"
       fi:
       ArrayTools:-Append(events, EventType(RealAlgebraicNumber(lhs(sol) * denom(rhs(sol)) -
-      numer(rhs(sol)), rhs(sol), rhs(sol)), [i]));
+      numer(rhs(sol)), rhs(sol), rhs(sol)), [i], {"AA"}));
     od:
     return events;
   end proc;
@@ -361,7 +361,7 @@ ComputeAsymptoticABEventsGrid:=proc(Q, vars::list)
    if poly = NULL or nops(poly) = 0 then
      return [];
    fi;
-   return SerializeEvents(GenerateEvents(poly, [i, j]));
+   return SerializeEvents(GenerateEvents(poly, [i, j], {"AB"}));
   end proc;
   map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq(seq(s(i, j, vars),
   j=i+1..nops(Q)), i=1..nops(Q))]);
@@ -457,7 +457,11 @@ local i, midpoint, sys, samplePoints, disjointEvent:=[], ranumI, ranumJ;
     midpoint := (GetInterval(disjointEvent[1])[2] + GetInterval(disjointEvent[2])[1])/2:
     # never call eval with sets!!
     sys := eval(sys, vars[1] = midpoint);
-    LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db);
+    if HasEventType(events[i], "AA") or HasEventType(events[i], "AB") then
+      LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db, false);
+    else
+      LaunchComputeSamplePoints2D(sys, midpoint, 1, false, vars[2..], db, true);
+    fi;
     SynchronizeSamplePoints(db);
     InsertComputedNumber(db, i);
   end do;

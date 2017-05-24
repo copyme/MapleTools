@@ -52,7 +52,8 @@ RigidMotionsParameterSpaceDecompostionRecursive := module()
 
   uses   RigidMotionsParameterSpaceCommon;
   local  ComputeEventsAType2D, ComputeEventsBType2D, ComputeEventsAType1D,
-         ComputeAsymptoticAAEvents2D, ComputeEventsAlgebraicNumbers2D, ComputeSamplePoints2D;
+         ComputeAsymptoticAAEvents2D, ComputeEventsAlgebraicNumbers2D, ComputeSamplePoints2D,
+         ComputeSamplePoints2DBounded;
          
   export IsAsymptotic2D, LaunchComputeSamplePoints2D;
 
@@ -82,7 +83,7 @@ ComputeEventsAType2D := proc(Q2D2, grid::boolean, vars2D::list)
     local q := Q2D2[i];
     sys := { q, diff( q, vars2D[2] ) };
     univ := UnivariatePolynomial(sys, vars2D):
-    return SerializeEvents(GenerateEvents(univ, [i]));
+    return SerializeEvents(GenerateEvents(univ, [i], {"A"}));
   end proc;
   if grid then
     map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq( s( i, vars2D ), 
@@ -116,7 +117,7 @@ ComputeEventsBType2D := proc(Q2D2, grid::boolean, vars2D::list)
     local p, sol, univ, sys;
     sys := {Q2D2[i], Q2D2[j]}:
     univ := UnivariatePolynomial(sys, vars2D);
-    return SerializeEvents(GenerateEvents(univ, [i, j]));
+    return SerializeEvents(GenerateEvents(univ, [i, j], {"B"}));
   end proc;
   if grid then
     map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [Grid:-Seq( seq( s(i, j, vars2D), 
@@ -158,7 +159,7 @@ ComputeAsymptoticAAEvents2D := proc(Q2D2, vars2D::list)
   s:=proc(i::integer, vars2D::list)
     local asy;
     asy := RigidMotionsParameterSpaceDecompostionRecursive:-IsAsymptotic2D(Q2D2[i], vars2D[-1]);
-    return GenerateEvents(asy, [i]);
+    return GenerateEvents(asy, [i], {"AA"});
   end proc:
   map[inplace](proc(x) Extend(result, x, inplace=true) end proc, [seq(s(i, vars2D),
                                                                 i=1..nops(Q2D2))]);
@@ -228,7 +229,7 @@ end proc:
 # Output:
 #   It populates a database, given by databasePath, with sample points.
 ComputeSamplePoints2D := proc(Q2D, events2D::Array, first::integer, last::integer,
-                              vars2D::list, amid::rational, db::ComputationRegister)
+                              vars2D::list, amid::rational, db::ComputationRegister, BOUNDED:=false)
   local i::integer, j::integer, x::list, midpoint::rational, sys::list, records := 0;
   local disjointEvent::list, oneD::list, oneDNeg::list, ranumI, ranumJ;
   if first < 0 or last < 0 or last < first or upperbound(events2D) <= last then 
@@ -255,7 +256,9 @@ ComputeSamplePoints2D := proc(Q2D, events2D::Array, first::integer, last::intege
           SynchronizeSamplePoints(db);
         fi;
       od:
-      InsertSamplePoint(db, [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]);
+      if not BOUNDED then
+        InsertSamplePoint(db, [amid, midpoint, GetInterval(oneD[-1])[2] + 1/2]);
+      fi;
       records := records + 1;
       if records mod RECORDS_TO_SYNCH = 0 then
         SynchronizeSamplePoints(db);
@@ -280,7 +283,8 @@ end proc:
 # Output:
 #   It populates a database with sample points.
 LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer,
-                                           grid::boolean, variables::list, db::ComputationRegister) 
+                                           grid::boolean, variables::list, db::ComputationRegister,
+                                           boundedOnly := false) 
   local events2D, Q2D := ListTools:-MakeUnique([op(variables), op(s)]);
   if grid and nops(s) > 20 then
      events2D := ComputeEventsAlgebraicNumbers2D(Q2D, true, variables);
@@ -294,7 +298,11 @@ LaunchComputeSamplePoints2D := proc (s::list, midpoint::rational, nodes::integer
   fi;
   events2D := ReduceEvents(events2D);
   AdjustEvents(events2D, upperbound(Q2D), variables);
-  ComputeSamplePoints2D(Q2D, events2D, 1, upperbound(events2D) - 1, variables, midpoint, db);
+  if not boundedOnly then
+    events2D := events2D[..-2];
+  fi;
+  ComputeSamplePoints2D(Q2D, events2D, 1, upperbound(events2D) - 1, variables, midpoint, db,
+                                                                               boundedOnly);
 end proc:
 
 end module;
