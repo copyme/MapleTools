@@ -57,7 +57,7 @@ RigidMotionsParameterSpaceDecompostion := module()
          # Only the procedures with prefix Launch* should be called! Other are exported only for 
          # the grid framework.
   export IsAsymptoticIntersection, ComputeSamplePoints, ParallelComputeSamplePoints,
-         LaunchComputeEvents, LaunchComputeSamplePoints; 
+         LaunchComputeEvents, LaunchComputeSamplePoints, IsAsymptotic3D;
 
   #Variables shared by grid nodes;
   global Q, events, vars, dbPath, skipped;
@@ -161,7 +161,7 @@ end proc:
 #
 # Output:
 #   List of solution for which partial derivatives in vars[2] and vars[3] are collinear.
-IsAsymptotic := proc(x::polynom, vars::list)
+IsAsymptotic3D := proc(x::polynom, vars::list)
   local vec, Vb, Vc, VV, sols;
   if nops(vars) < 3 then
     error "Expected at least three variables!";
@@ -247,13 +247,13 @@ ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
 end proc:
 
 
-# Procedure: ComputeEventsBType
+# Procedure: ComputeEventsBTypeGrid
 #   Compute events such that intersection of two quadrics is tangent to sweeping plane.
 #
 # Parameters:
 #   dir        - a direction of a gradient product it should
 #                be the same as director of sweep 
-#   Q          - a set of conics
+#   Q          - a set of quadrics
 #   vars       - a list of variables
 #
 # Output:
