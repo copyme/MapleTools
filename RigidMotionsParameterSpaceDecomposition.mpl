@@ -237,7 +237,7 @@ ComputeEventsATypeGrid := proc( Q, dim::list, vars::list )
   s := proc(i::integer, vars::list)
    local sys, univ;
    local q := Q[i];
-   sys := { q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] ) };
+   sys := [q, diff( q, vars[ dim[1] ] ), diff( q, vars[ dim[2] ] )];
    univ := UnivariatePolynomial(sys, vars);
    return SerializeEvents(GenerateEvents(univ, [i]));
   end proc:
@@ -268,7 +268,7 @@ ComputeEventsBTypeGrid := proc( Q, dir::integer, vars::list )
     local p, prod, univ, sys:
     prod := LinearAlgebra:-CrossProduct( VectorCalculus:-Gradient( Q[i], vars ),
                                     VectorCalculus:-Gradient( Q[j], vars ) )[dir]:
-    sys := { Q[i], Q[j], prod };
+    sys := [Q[i], Q[j], prod];
     univ := UnivariatePolynomial(sys, vars);
     return SerializeEvents(GenerateEvents(univ, [i, j]));
   end proc:
@@ -295,7 +295,7 @@ ComputeEventsCTypeGrid := proc( Q, vars::list )
   fi;
   s := proc (i, j, k, vars::list)
     local univ, sys;
-    sys := { Q[i], Q[j], Q[k] }:
+    sys := [Q[i], Q[j], Q[k]];
     univ := UnivariatePolynomial(sys, vars);
     return SerializeEvents(GenerateEvents(univ, [i, j, k]));
   end proc;

@@ -223,11 +223,17 @@ end proc;
 # Output:
 #   Univariate polynomial obtained from S.
 #
-UnivariatePolynomial := proc(S::set, vars::list)
+UnivariatePolynomial := proc(S::list, vars::list)
+  local output;
   if type(FGb, package) then
     return EliminationGroebner([op(S)], vars);
+  else
+    output := EliminationResultant([op(S)], vars);
+    if output = 0 then
+      return PolynomialIdeals:-UnivariatePolynomial(PolynomialIdeals:-PolynomialIdeal(S),vars[1]);
+    fi;
+    return output;
   fi;
-    return EliminationResultant([op(S)], vars);
 end proc;
 
 
