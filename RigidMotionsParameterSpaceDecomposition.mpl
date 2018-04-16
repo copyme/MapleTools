@@ -404,9 +404,8 @@ LaunchComputeEvents := proc(variables::list, databasePath::string, nType::string
   vars:=variables;
   dbPath:=databasePath;
   R := CayleyTransform(variables);
-  Q := ListTools:-MakeUnique([op(ComputeSetOfQuadrics(R, nType, 1, kRange)), 
-       op(ComputeSetOfQuadrics(R, nType, 2, kRange)),
-       op(ComputeSetOfQuadrics(R, nType, 3, kRange)), op(variables)]);
+  Q := ComputeSetOfQuadrics(R, nType, 1, kRange); 
+  Q := [op(Q), op(map2(subs, [b = -c, c = b], Q)), op(map2(subs, [a = b, b = c, c = a], Q)), op(variables)];
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
