@@ -400,12 +400,14 @@ end proc:
 # Output:
 #   It populates a database given by databasePath.
 LaunchComputeEvents := proc(variables::list, databasePath::string, nType::string, kRange::list) 
-  local R, i,db:=Object(ComputationRegister, databasePath);
-  vars:=variables;
+  local Q, Q1, Q2, Q3, R, i, db := Object(ComputationRegister, databasePath);
+  vars := variables;
   dbPath:=databasePath;
   R := CayleyTransform(variables);
-  Q := ComputeSetOfQuadrics(R, nType, 1, kRange); 
-  Q := [op(Q), op(map2(subs, [b = -c, c = b], Q)), op(map2(subs, [a = b, b = c, c = a], Q)), op(variables)];
+  Q1 := ComputeSetOfQuadrics(R, nType, 1, kRange); 
+  Q2 := map2(subs, [a = b, b = c, c = a], Q1);
+  Q3 := map2(subs, [a = b, b = c, c = a], Q2);
+  Q := [op(Q1), op(Q2), op(Q3), op(variables)];
   for i from 1 to nops(Q) do
     InsertQuadric(db, i, Q[i]);
   od;
