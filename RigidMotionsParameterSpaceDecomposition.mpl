@@ -139,7 +139,7 @@ ComputeSetOfQuadrics := proc( R::~Matrix,
     f := GetQuadric( R, Vector( indexes[1] ), Vector( 3, indexes[3] + 1/2 ), axis ):
     g := GetQuadric( R, Vector( indexes[2] ), Vector( 3, indexes[4] + 1/2 ), axis ):
     quadric := f - g:
-    if quadric <> 0 then
+    if not type(quadric, constant) then
       quadric := quadric / lcoeff( quadric ):
       ArrayTools:-Append(quadrics,quadric):
     end if:
